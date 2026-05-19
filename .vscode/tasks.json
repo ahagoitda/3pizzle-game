@@ -1,0 +1,76 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "zip: 현재 프로젝트 압축",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\zip-project.ps1",
+        "-ProjectRoot",
+        "${workspaceFolder}"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "ollama: 메인 코딩 모델 로드 (qwen2.5-coder:7b-instruct-q4_K_M)",
+      "type": "shell",
+      "command": "ollama",
+      "args": ["run", "qwen2.5-coder:7b-instruct-q4_K_M"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "ollama: 보조 모델 로드 (gemma4:e4b)",
+      "type": "shell",
+      "command": "ollama",
+      "args": ["run", "gemma4:e4b"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "ollama: 서버 상태 확인",
+      "type": "shell",
+      "command": "ollama",
+      "args": ["list"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "ollama: 메모리에서 모델 해제",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-Command",
+        "Invoke-RestMethod -Uri 'http://localhost:11434/api/generate' -Method Post -ContentType 'application/json' -Body '{\"model\":\"qwen2.5-coder:7b-instruct-q4_K_M\",\"keep_alive\":\"0\"}'"
+      ],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

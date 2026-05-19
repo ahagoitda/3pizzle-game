@@ -1,6 +1,8 @@
 # Triple Puzzle
 
-웹 브라우저에서 바로 즐기는 3-in-1 퍼즐 게임. 설치 없이 HTML 파일 하나로 실행됩니다.
+**[지금 플레이하기](https://ahagoitda.github.io/3pizzle-game/)**
+
+웹 브라우저에서 바로 즐기는 3-in-1 퍼즐 게임. 설치 불필요, 클릭 한 번으로 실행.
 
 ## 게임 모드
 
@@ -17,24 +19,15 @@
 - **CSS3** — 반응형 레이아웃, Glass-morphism UI
 - **localStorage** — 최고 점수 저장
 
-## 실행 방법
-
-```
-rpg/index.html 을 브라우저로 열기
-```
-
-또는 GitHub Pages로 배포해 링크 하나로 공유 가능.
-
 ## 프로젝트 구조
 
 ```
-rpg/
-  index.html        # 메인 페이지 + CSS + Canvas
-  main.js           # 메뉴, 게임 전환, 점수 관리
-  match3.js         # 매치-3 퍼즐 (애니팡)
-  blockpuzzle.js    # 블록 퍼즐
-  mahjong.js        # 사천성
-  effects.js        # 파티클, 화면 진동, 이펙트 유틸
+index.html        # 메인 페이지 + CSS + Canvas
+main.js           # 메뉴, 게임 전환, 점수 관리
+match3.js         # 매치-3 퍼즐 (애니팡)
+blockpuzzle.js    # 블록 퍼즐
+mahjong.js        # 사천성
+effects.js        # 파티클, 화면 진동, 이펙트 유틸
 ```
 
 ## 특징
