@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Triple Puzzle</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #0a0a1a;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+canvas {
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 0 60px rgba(100, 100, 255, 0.15), 0 0 120px rgba(100, 100, 255, 0.05);
+  max-width: 100vw;
+  max-height: 100vh;
+}
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script src="effects.js"></script>
+<script src="match3.js"></script>
+<script src="blockpuzzle.js"></script>
+<script src="mahjong.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
