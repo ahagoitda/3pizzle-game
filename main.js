@@ -101,9 +101,88 @@ var Game = (function () {
     drawScores(cx, cy + 250);
   }
 
-  function drawMenuButton(btn, cx, cy, bx, bw) {
-    var highlight = btn.mode === mode ? 0.15 : 0;
+  // --- preview icon drawers ---
 
+  function drawMatch3Preview(cx, cy) {
+    var colors = ['#FF6B81','#FFD700','#60A5FA','#A855F7','#34D399','#F97316'];
+    var grid = 3, cell = 10, gap = 3;
+    var total = grid * cell + (grid - 1) * gap;
+    var ox = cx - total / 2;
+    var oy = cy - total / 2;
+    ctx.save();
+    ctx.shadowBlur = 0;
+    for (var r = 0; r < grid; r++) {
+      for (var c = 0; c < grid; c++) {
+        var col = colors[(r * grid + c) % colors.length];
+        var x = ox + c * (cell + gap);
+        var y = oy + r * (cell + gap);
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(x + cell / 2, y + cell / 2, cell / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath();
+        ctx.arc(x + cell / 2 - 2, y + cell / 2 - 2, cell / 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawBlockPreview(cx, cy) {
+    var shapes = [
+      [[0,0],[1,0],[2,0]],
+      [[0,1],[0,2]],
+      [[1,1],[2,1],[2,2]]
+    ];
+    var cell = 9, gap = 2;
+    var ox = cx - (3 * (cell + gap)) / 2;
+    var oy = cy - (3 * (cell + gap)) / 2;
+    ctx.save();
+    ctx.shadowBlur = 0;
+    for (var s = 0; s < shapes.length; s++) {
+      var shade = s === 0 ? '#93C5FD' : s === 1 ? '#60A5FA' : '#3B82F6';
+      ctx.fillStyle = shade;
+      for (var t = 0; t < shapes[s].length; t++) {
+        var bx = ox + shapes[s][t][0] * (cell + gap);
+        var by = oy + shapes[s][t][1] * (cell + gap);
+        ctx.beginPath();
+        ctx.roundRect(bx, by, cell, cell, 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawMahjongPreview(cx, cy) {
+    var tiles = [
+      {x: -16, y: -10}, {x: -4, y: -10}, {x: 8, y: -10},
+      {x: -10, y:  4}, {x:  2, y:  4}
+    ];
+    ctx.save();
+    ctx.shadowBlur = 0;
+    for (var i = 0; i < tiles.length; i++) {
+      var tx = cx + tiles[i].x;
+      var ty = cy + tiles[i].y;
+      ctx.fillStyle = 'rgba(168,85,247,0.25)';
+      ctx.beginPath();
+      ctx.roundRect(tx, ty, 11, 14, 2);
+      ctx.fill();
+      ctx.strokeStyle = '#A855F7';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(tx, ty, 11, 14, 2);
+      ctx.stroke();
+      ctx.fillStyle = '#D8B4FE';
+      ctx.font = 'bold 7px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(['一','二','三','四','五'][i], tx + 5.5, ty + 7);
+    }
+    ctx.restore();
+  }
+
+  function drawMenuButton(btn, cx, cy, bx, bw) {
     ctx.shadowColor = btn.col;
     ctx.shadowBlur = 10 + 5 * Math.sin(menuPulse * 1.5 + (btn.mode === 'match3' ? 0 : btn.mode === 'block' ? 2 : 4));
 
@@ -124,15 +203,23 @@ var Game = (function () {
 
     ctx.shadowBlur = 0;
 
+    // preview icon (left side of button)
+    var iconX = bx + 35;
+    var iconY = cy;
+    if (btn.mode === 'match3') drawMatch3Preview(iconX, iconY);
+    else if (btn.mode === 'block') drawBlockPreview(iconX, iconY);
+    else if (btn.mode === 'mahjong') drawMahjongPreview(iconX, iconY);
+
+    // text (shifted right to make room for icon)
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 24px "Segoe UI", sans-serif';
     ctx.fillStyle = btn.col;
-    ctx.fillText(btn.label, cx, cy - 8);
+    ctx.fillText(btn.label, cx + 20, cy - 8);
 
     ctx.font = '12px "Segoe UI", sans-serif';
     ctx.fillStyle = '#aaa';
-    ctx.fillText(btn.sub, cx, cy + 16);
+    ctx.fillText(btn.sub, cx + 20, cy + 16);
   }
 
   function drawScores(cx, cy) {
