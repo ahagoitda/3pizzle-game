@@ -14,6 +14,7 @@ const Match3 = (function () {
   var scorePopups;
   var specialGems;
   var highScore;
+  var difficulty;
 
   var GEM_NORMAL = 0;
   var GEM_LINE_H = 1;
@@ -21,10 +22,11 @@ const Match3 = (function () {
   var GEM_BOMB = 3;
   var GEM_RAINBOW = 4;
 
-  function init(cnv, ctxt, backCb) {
+  function init(cnv, ctxt, backCb, diff) {
     canvas = cnv;
     ctx = ctxt;
     onBack = backCb;
+    difficulty = diff || 'normal';
     BOARD_W = COLS * GEM + (COLS - 1) * GAP;
     BOARD_H = ROWS * GEM + (ROWS - 1) * GAP;
     GRID_X = Math.floor((canvas.width - BOARD_W) / 2);
@@ -59,7 +61,9 @@ const Match3 = (function () {
     }
     score = 0;
     combo = 0;
-    timeLeft = 60;
+    if (difficulty === 'easy') timeLeft = 90;
+    else if (difficulty === 'hard') timeLeft = 45;
+    else timeLeft = 60;
     selected = null;
     animState = 'idle';
     animTimer = 0;

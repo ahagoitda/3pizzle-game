@@ -4,7 +4,7 @@ const BlockPuzzle = (function () {
   var ROWS = 10, COLS = 10, CELL = 40, GAP = 2;
   var BOARD_W, BOARD_H, GRID_X, GRID_Y, PREVIEW_Y;
   var canvas, ctx, onBack;
-  var board, score, blocks, selectedBlock, gameOver, animClearing, clearTimer, clearTimeoutId;
+  var board, boardMask, score, blocks, selectedBlock, gameOver, animClearing, clearTimer, clearTimeoutId;
   var pointerDown, draggingBlock, dragR, dragC;
   var blockColors;
   var clearingRows, clearingCols;
@@ -12,11 +12,159 @@ const BlockPuzzle = (function () {
   var highScore;
   var scorePopups;
   var shapes, shapeColors;
+  var difficulty;
+  var gameState;
+  var currentStage;
+  var stageScrollY;
 
-  function init(cnv, ctxt, backCb) {
+  var boardShapes = [
+    {
+      name: 'Square',
+      unlock: 0,
+      mask: [
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '##########'
+      ]
+    },
+    {
+      name: 'Cross',
+      unlock: 500,
+      mask: [
+        '...####...',
+        '...####...',
+        '...####...',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '...####...',
+        '...####...',
+        '...####...'
+      ]
+    },
+    {
+      name: 'Diamond',
+      unlock: 1500,
+      mask: [
+        '....##....',
+        '..######..',
+        '.########.',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '.########.',
+        '..######..',
+        '....##....'
+      ]
+    },
+    {
+      name: 'Heart',
+      unlock: 3000,
+      mask: [
+        '.##....##.',
+        '########..',
+        '##########',
+        '##########',
+        '##########',
+        '.########.',
+        '..######..',
+        '...####...',
+        '....##....',
+        '..........'
+      ]
+    },
+    {
+      name: 'L-Shape',
+      unlock: 5000,
+      mask: [
+        '##........',
+        '##........',
+        '##........',
+        '##........',
+        '##........',
+        '##........',
+        '##........',
+        '##########',
+        '##########',
+        '##########'
+      ]
+    },
+    {
+      name: 'T-Shape',
+      unlock: 8000,
+      mask: [
+        '##########',
+        '##########',
+        '##########',
+        '...####...',
+        '...####...',
+        '...####...',
+        '...####...',
+        '...####...',
+        '...####...',
+        '...####...'
+      ]
+    },
+    {
+      name: 'Arrow',
+      unlock: 12000,
+      mask: [
+        '....##....',
+        '..######...',
+        '.########.',
+        '##########',
+        '..######...',
+        '..######...',
+        '..######...',
+        '..######...',
+        '..######...',
+        '..######...'
+      ]
+    },
+    {
+      name: 'Circle',
+      unlock: 20000,
+      mask: [
+        '...####...',
+        '.########.',
+        '.########.',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '.########.',
+        '.########.',
+        '...####...'
+      ]
+    }
+  ];
+
+  function parseMask(maskStr) {
+    var result = [];
+    for (var r = 0; r < maskStr.length; r++) {
+      result[r] = [];
+      for (var c = 0; c < maskStr[r].length; c++) {
+        result[r][c] = maskStr[r][c] === '#';
+      }
+    }
+    return result;
+  }
+
+  function init(cnv, ctxt, backCb, diff) {
     canvas = cnv;
     ctx = ctxt;
     onBack = backCb;
+    difficulty = diff || 'normal';
+    CELL = 40;
     BOARD_W = COLS * CELL + (COLS - 1) * GAP;
     BOARD_H = ROWS * CELL + (ROWS - 1) * GAP;
     GRID_X = Math.floor((canvas.width - BOARD_W) / 2);
@@ -57,8 +205,24 @@ const BlockPuzzle = (function () {
       { main: '#EC4899', light: '#F472B6', dark: '#9D174D' }
     ];
 
-    resetGame();
+    gameState = 'stageselect';
+    currentStage = 0;
+    stageScrollY = 0;
+
     bindInput();
+    render();
+  }
+
+  function isStageUnlocked(idx) {
+    if (idx === 0) return true;
+    return (highScore || 0) >= boardShapes[idx].unlock;
+  }
+
+  function startGame(stageIdx) {
+    currentStage = stageIdx;
+    boardMask = parseMask(boardShapes[stageIdx].mask);
+    resetGame();
+    gameState = 'playing';
   }
 
   function resetGame() {
@@ -66,7 +230,7 @@ const BlockPuzzle = (function () {
     for (var r = 0; r < ROWS; r++) {
       board[r] = [];
       for (var c = 0; c < COLS; c++) {
-        board[r][c] = -1;
+        board[r][c] = boardMask[r][c] ? -1 : -2;
       }
     }
     score = 0;
@@ -88,8 +252,18 @@ const BlockPuzzle = (function () {
 
   function generateBlocks(count) {
     var result = [];
+    var maxIdx = difficulty === 'easy' ? 8 : difficulty === 'hard' ? shapes.length : shapes.length;
+    var minIdx = 0;
+    if (difficulty === 'easy') {
+      minIdx = 0;
+      maxIdx = 10;
+    } else if (difficulty === 'hard') {
+      minIdx = 5;
+      maxIdx = shapes.length;
+    }
     for (var i = 0; i < count; i++) {
-      var idx = Math.floor(Math.random() * shapes.length);
+      var range = maxIdx - minIdx;
+      var idx = minIdx + Math.floor(Math.random() * range);
       result.push({ shape: shapes[idx], color: idx % blockColors.length });
     }
     return result;
@@ -101,6 +275,7 @@ const BlockPuzzle = (function () {
       var r = br + shape[i][0];
       var c = bc + shape[i][1];
       if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+      if (!boardMask[r][c]) return false;
       if (board[r][c] >= 0) return false;
     }
     return true;
@@ -128,13 +303,13 @@ const BlockPuzzle = (function () {
       for (var ri = 0; ri < cleared.rows.length; ri++) {
         for (var cc = 0; cc < COLS; cc++) {
           var key = cleared.rows[ri] + ',' + cc;
-          if (board[cleared.rows[ri]][cc] >= 0) clearedCells[key] = true;
+          if (boardMask[cleared.rows[ri]][cc] && board[cleared.rows[ri]][cc] >= 0) clearedCells[key] = true;
         }
       }
       for (var ci = 0; ci < cleared.cols.length; ci++) {
         for (var rr = 0; rr < ROWS; rr++) {
           var key2 = rr + ',' + cleared.cols[ci];
-          if (board[rr][cleared.cols[ci]] >= 0) clearedCells[key2] = true;
+          if (boardMask[rr][cleared.cols[ci]] && board[rr][cleared.cols[ci]] >= 0) clearedCells[key2] = true;
         }
       }
       var cellCount = Object.keys(clearedCells).length;
@@ -181,16 +356,26 @@ const BlockPuzzle = (function () {
     for (var r = 0; r < ROWS; r++) {
       var full = true;
       for (var c = 0; c < COLS; c++) {
+        if (!boardMask[r][c]) continue;
         if (board[r][c] < 0) { full = false; break; }
       }
-      if (full) fullRows.push(r);
+      if (full) {
+        var hasActive = false;
+        for (var c2 = 0; c2 < COLS; c2++) { if (boardMask[r][c2]) { hasActive = true; break; } }
+        if (hasActive) fullRows.push(r);
+      }
     }
-    for (var c = 0; c < COLS; c++) {
-      var full = true;
-      for (var r = 0; r < ROWS; r++) {
-        if (board[r][c] < 0) { full = false; break; }
+    for (var c3 = 0; c3 < COLS; c3++) {
+      var full2 = true;
+      for (var r2 = 0; r2 < ROWS; r2++) {
+        if (!boardMask[r2][c3]) continue;
+        if (board[r2][c3] < 0) { full2 = false; break; }
       }
-      if (full) fullCols.push(c);
+      if (full2) {
+        var hasActive2 = false;
+        for (var r3 = 0; r3 < ROWS; r3++) { if (boardMask[r3][c3]) { hasActive2 = true; break; } }
+        if (hasActive2) fullCols.push(c3);
+      }
     }
     return { rows: fullRows, cols: fullCols };
   }
@@ -204,7 +389,7 @@ const BlockPuzzle = (function () {
     for (var i = 0; i < cleared.rows.length; i++) {
       var ry = GRID_Y + cleared.rows[i] * (CELL + GAP) + CELL / 2;
       for (var cc = 0; cc < COLS; cc++) {
-        if (board[cleared.rows[i]][cc] >= 0) {
+        if (boardMask[cleared.rows[i]][cc] && board[cleared.rows[i]][cc] >= 0) {
           var cx = GRID_X + cc * (CELL + GAP) + CELL / 2;
           Effects.emit(cx, ry, 4, '#FFD700', { speedMin: 30, speedMax: 80, sizeMin: 2, sizeMax: 5, lifeMin: 0.3, lifeMax: 0.6 });
         }
@@ -214,7 +399,7 @@ const BlockPuzzle = (function () {
     for (var j = 0; j < cleared.cols.length; j++) {
       var cx2 = GRID_X + cleared.cols[j] * (CELL + GAP) + CELL / 2;
       for (var rr = 0; rr < ROWS; rr++) {
-        if (board[rr][cleared.cols[j]] >= 0) {
+        if (boardMask[rr][cleared.cols[j]] && board[rr][cleared.cols[j]] >= 0) {
           var cy = GRID_Y + rr * (CELL + GAP) + CELL / 2;
           Effects.emit(cx2, cy, 4, '#FFD700', { speedMin: 30, speedMax: 80, sizeMin: 2, sizeMax: 5, lifeMin: 0.3, lifeMax: 0.6 });
         }
@@ -228,12 +413,12 @@ const BlockPuzzle = (function () {
     clearTimeoutId = setTimeout(function () {
       for (var ri = 0; ri < clearRows.length; ri++) {
         for (var c = 0; c < COLS; c++) {
-          board[clearRows[ri]][c] = -1;
+          if (boardMask[clearRows[ri]][c]) board[clearRows[ri]][c] = -1;
         }
       }
       for (var ci = 0; ci < clearCols.length; ci++) {
         for (var r = 0; r < ROWS; r++) {
-          board[r][clearCols[ci]] = -1;
+          if (boardMask[r][clearCols[ci]]) board[r][clearCols[ci]] = -1;
         }
       }
       animClearing = false;
@@ -249,7 +434,11 @@ const BlockPuzzle = (function () {
       if (blocks[i] !== null) remaining.push(blocks[i]);
     }
     while (remaining.length < 3) {
-      var idx = Math.floor(Math.random() * shapes.length);
+      var minIdx = 0, maxIdx = shapes.length;
+      if (difficulty === 'easy') { minIdx = 0; maxIdx = 10; }
+      else if (difficulty === 'hard') { minIdx = 5; maxIdx = shapes.length; }
+      var range = maxIdx - minIdx;
+      var idx = minIdx + Math.floor(Math.random() * range);
       remaining.push({ shape: shapes[idx], color: idx % blockColors.length });
     }
     blocks = remaining;
@@ -281,6 +470,7 @@ const BlockPuzzle = (function () {
     var rx = col * (CELL + GAP), ry = row * (CELL + GAP);
     if (cx < 0 || cy < 0 || cx >= rx + CELL || cy >= ry + CELL) return null;
     if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return null;
+    if (!boardMask[row][col]) return null;
     return { r: row, c: col };
   }
 
@@ -294,11 +484,12 @@ const BlockPuzzle = (function () {
   function getPreviewBlockIndex(x, y) {
     if (y < PREVIEW_Y) return -1;
     var gap = 12;
-    var previewCell = 28;
-    var startX = GRID_X + Math.floor((BOARD_W - (3 * (previewCell * 3 + 8) + 2 * gap)) / 2);
+    var previewCell = 26;
+    var areaW = 3 * (previewCell * 3 + 8) + 2 * gap;
+    var startX = GRID_X + Math.floor((BOARD_W - areaW) / 2);
     for (var i = 0; i < 3; i++) {
       if (blocks[i] === null) continue;
-      var bw = previewCell * 3, bh = previewCell * 3;
+      var bw = previewCell * 3 + 8, bh = previewCell * 3 + 8;
       var bx = startX + i * (bw + gap);
       var by = PREVIEW_Y + 10;
       if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) return i;
@@ -308,24 +499,38 @@ const BlockPuzzle = (function () {
 
   function onDown(e) {
     var p = handlePointer(e.touches ? e.touches[0] : e);
+
+    if (gameState === 'stageselect') {
+      handleStageSelectClick(p);
+      return;
+    }
+
     if (gameOver) {
       var cx = canvas.width / 2;
       var cy = canvas.height / 2;
       var btnW = 200, btnH = 50, btnY = cy + 40;
       var btn2Y = btnY + btnH + 15;
+      var btn3Y = btn2Y + btnH + 15;
       if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
         if (p.y >= btnY && p.y <= btnY + btnH) {
           resetGame();
           return;
         }
         if (p.y >= btn2Y && p.y <= btn2Y + btnH) {
+          gameState = 'stageselect';
+          return;
+        }
+        if (p.y >= btn3Y && p.y <= btn3Y + btnH) {
           onBack();
           return;
         }
       }
       return;
     }
-    if (p.y < 55 && p.x < 60) { onBack(); return; }
+    if (p.y < 55 && p.x < 60) {
+      gameState = 'stageselect';
+      return;
+    }
 
     var previewIdx = getPreviewBlockIndex(p.x, p.y);
     if (previewIdx >= 0) {
@@ -350,7 +555,41 @@ const BlockPuzzle = (function () {
     }
   }
 
+  function handleStageSelectClick(p) {
+    var cx = canvas.width / 2;
+    var cy = 80;
+    var cellSize = 18;
+    var gap2 = 3;
+    var cardW = 4 * (cellSize + gap2) + 16;
+    var cardH = 4 * (cellSize + gap2) + 40;
+    var cols2 = 2;
+    var cardGap = 12;
+    var totalW = cols2 * cardW + (cols2 - 1) * cardGap;
+    var startX = cx - totalW / 2;
+    var startY = 140;
+
+    var backY = canvas.height - 50;
+    if (p.y >= backY - 15 && p.y <= backY + 15 && p.x >= cx - 40 && p.x <= cx + 40) {
+      onBack();
+      return;
+    }
+
+    for (var i = 0; i < boardShapes.length; i++) {
+      var row2 = Math.floor(i / cols2);
+      var col2 = i % cols2;
+      var bx = startX + col2 * (cardW + cardGap);
+      var by = startY + row2 * (cardH + cardGap);
+      if (p.x >= bx && p.x <= bx + cardW && p.y >= by && p.y <= by + cardH) {
+        if (isStageUnlocked(i)) {
+          startGame(i);
+          return;
+        }
+      }
+    }
+  }
+
   function onMove(e) {
+    if (gameState !== 'playing' || gameOver) return;
     if (draggingBlock < 0) return;
     var p = handlePointer(e.touches ? e.touches[0] : e);
     var cell = getCell(p.x, p.y);
@@ -364,6 +603,7 @@ const BlockPuzzle = (function () {
   }
 
   function onUp(e) {
+    if (gameState !== 'playing' || gameOver) return;
     if (draggingBlock >= 0) {
       if (dragR >= 0 && dragC >= 0) {
         placeBlock(draggingBlock, dragR, dragC);
@@ -393,6 +633,11 @@ const BlockPuzzle = (function () {
   }
 
   function update(dt) {
+    if (gameState === 'stageselect') {
+      Effects.update(dt);
+      return;
+    }
+
     if (animClearing) {
       clearTimer -= dt;
       if (clearTimer <= 0) animClearing = false;
@@ -406,6 +651,11 @@ const BlockPuzzle = (function () {
   }
 
   function render() {
+    if (gameState === 'stageselect') {
+      renderStageSelect();
+      return;
+    }
+
     var shake = Effects.getShakeOffset();
     ctx.save();
     ctx.translate(shake.x, shake.y);
@@ -425,6 +675,143 @@ const BlockPuzzle = (function () {
     ctx.restore();
   }
 
+  function renderStageSelect() {
+    var cx = canvas.width / 2;
+
+    ctx.fillStyle = '#0f0f23';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    var grad = ctx.createRadialGradient(cx, canvas.height * 0.3, 0, cx, canvas.height * 0.3, canvas.height);
+    grad.addColorStop(0, '#1a1a3e');
+    grad.addColorStop(1, '#0a0a1a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    Effects.render(ctx);
+
+    ctx.font = 'bold 28px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFD700';
+    ctx.shadowColor = 'rgba(255, 215, 0, 0.3)';
+    ctx.shadowBlur = 15;
+    ctx.fillText('Select Stage', cx, 60);
+    ctx.shadowBlur = 0;
+
+    ctx.font = '14px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#888';
+    ctx.fillText('High Score: ' + (highScore || 0), cx, 95);
+
+    var cellSize = 18;
+    var gap2 = 3;
+    var cardW = 4 * (cellSize + gap2) + 16;
+    var cardH = 4 * (cellSize + gap2) + 40;
+    var cols2 = 2;
+    var cardGap = 12;
+    var totalW = cols2 * cardW + (cols2 - 1) * cardGap;
+    var startX = cx - totalW / 2;
+    var startY = 140;
+
+    for (var i = 0; i < boardShapes.length; i++) {
+      var row2 = Math.floor(i / cols2);
+      var col2 = i % cols2;
+      var bx = startX + col2 * (cardW + cardGap);
+      var by = startY + row2 * (cardH + cardGap);
+      var unlocked = isStageUnlocked(i);
+      var isSelected = (i === currentStage);
+
+      if (isSelected && unlocked) {
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, cardW, cardH, 8);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      var bgGrad = ctx.createLinearGradient(bx, by, bx, by + cardH);
+      if (unlocked) {
+        bgGrad.addColorStop(0, 'rgba(255,255,255,0.08)');
+        bgGrad.addColorStop(1, 'rgba(255,255,255,0.02)');
+      } else {
+        bgGrad.addColorStop(0, 'rgba(255,255,255,0.03)');
+        bgGrad.addColorStop(1, 'rgba(255,255,255,0.01)');
+      }
+      ctx.fillStyle = bgGrad;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, cardW, cardH, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = unlocked ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, cardW, cardH, 8);
+      ctx.stroke();
+
+      var mask = parseBoardShapeData(i);
+      var mRows = mask.length;
+      var mCols = mask[0].length;
+      var mSize = cellSize;
+      var ox = bx + (cardW - mCols * (mSize + gap2) + gap2) / 2;
+      var oy = by + 8;
+
+      for (var r = 0; r < mRows; r++) {
+        for (var c = 0; c < mCols; c++) {
+          var px = ox + c * (mSize + gap2);
+          var py = oy + r * (mSize + gap2);
+          if (mask[r][c]) {
+            ctx.fillStyle = unlocked ? (isSelected ? '#60A5FA' : 'rgba(96,165,250,0.5)') : 'rgba(255,255,255,0.1)';
+            ctx.beginPath();
+            ctx.roundRect(px, py, mSize, mSize, 3);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = 'rgba(255,255,255,0.02)';
+            ctx.beginPath();
+            ctx.roundRect(px, py, mSize, mSize, 3);
+            ctx.fill();
+          }
+        }
+      }
+
+      ctx.font = 'bold 11px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = unlocked ? '#FFFFFF' : '#555';
+      ctx.fillText(boardShapes[i].name, bx + cardW / 2, by + cardH - 20);
+
+if (!unlocked) {
+        ctx.font = '9px "Segoe UI", sans-serif';
+        ctx.fillStyle = '#555';
+        ctx.fillText(boardShapes[i].unlock + ' pts', bx + cardW / 2, by + cardH - 7);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1.5;
+        var lx = bx + cardW / 2;
+        var ly = by + cardH / 2 - 8;
+        ctx.beginPath();
+        ctx.arc(lx, ly - 3, 5, Math.PI, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.roundRect(lx - 7, ly - 2, 14, 12, 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    var backY = canvas.height - 50;
+    ctx.font = '16px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Back', cx, backY);
+  }
+
+  function parseBoardShapeData(idx) {
+    return parseMask(boardShapes[idx].mask);
+  }
+
   function drawHeader() {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, canvas.width, 55);
@@ -434,9 +821,14 @@ const BlockPuzzle = (function () {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText('Score: ' + score, 20, 28);
 
-    ctx.font = '14px "Segoe UI", sans-serif';
+    ctx.font = '12px "Segoe UI", sans-serif';
     ctx.fillStyle = '#aaa';
-    ctx.fillText('Back', 20, 48);
+    ctx.fillText('Back', 20, 46);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = blockColors[currentStage % blockColors.length].light;
+    ctx.font = 'bold 14px "Segoe UI", sans-serif';
+    ctx.fillText(boardShapes[currentStage].name, canvas.width - 20, 28);
 
     if (comboCount > 1) {
       ctx.font = 'bold 18px "Segoe UI", sans-serif';
@@ -451,6 +843,10 @@ const BlockPuzzle = (function () {
       for (var c = 0; c < COLS; c++) {
         var x = GRID_X + c * (CELL + GAP);
         var y = GRID_Y + r * (CELL + GAP);
+
+        if (!boardMask[r][c]) {
+          continue;
+        }
 
         if (board[r][c] >= 0) {
           drawCell(x, y, CELL, board[r][c], (animClearing && isClearing(r, c)) ? 0.5 : 1);
@@ -502,6 +898,12 @@ const BlockPuzzle = (function () {
     var areaW = 3 * (previewCell * 3 + 8) + 2 * gap;
     var startX = GRID_X + Math.floor((BOARD_W - areaW) / 2);
 
+    var nextY = PREVIEW_Y - 5;
+    ctx.font = '12px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#666';
+    ctx.fillText('Next pieces', canvas.width / 2, nextY);
+
     for (var i = 0; i < 3; i++) {
       var bw = previewCell * 3 + 8, bh = previewCell * 3 + 8;
       var bx = startX + i * (bw + gap);
@@ -522,7 +924,6 @@ const BlockPuzzle = (function () {
 
       if (blocks[i] === null) continue;
       var shape = blocks[i].shape;
-      var offsetR = 0, offsetC = 0;
       var minR = Infinity, minC = Infinity, maxR = -Infinity, maxC = -Infinity;
       for (var j = 0; j < shape.length; j++) {
         if (shape[j][0] < minR) minR = shape[j][0];
@@ -538,11 +939,11 @@ const BlockPuzzle = (function () {
       for (var k = 0; k < shape.length; k++) {
         var sx = offsetX + (shape[k][1] - minC) * previewCell;
         var sy = offsetY + (shape[k][0] - minR) * previewCell;
-        var bc = blockColors[blocks[i].color];
+        var bc2 = blockColors[blocks[i].color];
         var g = ctx.createLinearGradient(sx, sy, sx + previewCell, sy + previewCell);
-        g.addColorStop(0, bc.light);
-        g.addColorStop(0.5, bc.main);
-        g.addColorStop(1, bc.dark);
+        g.addColorStop(0, bc2.light);
+        g.addColorStop(0.5, bc2.main);
+        g.addColorStop(1, bc2.dark);
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.roundRect(sx + 1, sy + 1, previewCell - 2, previewCell - 2, 4);
@@ -555,17 +956,17 @@ const BlockPuzzle = (function () {
     if (blockIdx < 0 || !blocks[blockIdx]) return;
     var block = blocks[blockIdx];
     var canP = canPlace(block, br, bc);
-    var ghostColor = canP ? block.color : -1;
 
     ctx.globalAlpha = 0.4;
     for (var i = 0; i < block.shape.length; i++) {
       var r = br + block.shape[i][0];
       var c = bc + block.shape[i][1];
       if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+      if (!boardMask[r][c]) continue;
       var x = GRID_X + c * (CELL + GAP);
       var y = GRID_Y + r * (CELL + GAP);
       if (canP) {
-        drawCell(x, y, CELL, ghostColor, 0.4);
+        drawCell(x, y, CELL, block.color, 0.4);
       } else {
         ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
         ctx.beginPath();
@@ -613,12 +1014,20 @@ const BlockPuzzle = (function () {
     ctx.fillText('Retry', cx, btnY + btnH / 2);
 
     var btn2Y = btnY + btnH + 15;
-    ctx.fillStyle = 'rgba(100, 100, 120, 0.7)';
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.9)';
     ctx.beginPath();
     ctx.roundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12);
     ctx.fill();
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Menu', cx, btn2Y + btnH / 2);
+    ctx.fillText('Stages', cx, btn2Y + btnH / 2);
+
+    var btn3Y = btn2Y + btnH + 15;
+    ctx.fillStyle = 'rgba(100, 100, 120, 0.7)';
+    ctx.beginPath();
+    ctx.roundRect(cx - btnW / 2, btn3Y, btnW, btnH, 12);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Menu', cx, btn3Y + btnH / 2);
   }
 
   function drawScorePopups() {

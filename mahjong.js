@@ -14,14 +14,16 @@ const Mahjong = (function () {
   var noMovesNotifiedTime;
   var highScore;
   var scorePopups;
+  var difficulty;
 
   var SHAPE_DRAW = ['circle', 'diamond', 'square', 'triangle', 'star', 'heart'];
   var TYPE_COLORS = ['#FF4757', '#3B82F6', '#10B981', '#F59E0B', '#A855F7', '#F97316', '#EC4899', '#6366F1', '#14B8A6'];
 
-  function init(cnv, ctxt, backCb) {
+  function init(cnv, ctxt, backCb, diff) {
     canvas = cnv;
     ctx = ctxt;
     onBack = backCb;
+    difficulty = diff || 'normal';
     TILE_W = 44; TILE_H = 52;
     shapeNames = SHAPE_DRAW;
     shapeColors = TYPE_COLORS;
@@ -436,7 +438,8 @@ const Mahjong = (function () {
     var pair = findAnyPair();
     if (pair) {
       hintPair = pair;
-      score = Math.max(0, score - 5);
+      var penalty = difficulty === 'easy' ? 0 : difficulty === 'hard' ? 10 : 5;
+      score = Math.max(0, score - penalty);
     }
   }
 

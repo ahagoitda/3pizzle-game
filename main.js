@@ -5,6 +5,10 @@ var Game = (function () {
   var highScores = {};
   var startCalled = {};
   var menuPulse;
+  var difficulty = 'normal';
+  var difficultyNames = ['easy', 'normal', 'hard'];
+  var difficultyLabels = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
+  var difficultyColors = { easy: '#2ED573', normal: '#FFD700', hard: '#FF4757' };
 
   function init() {
     canvas = document.getElementById('gameCanvas');
@@ -14,6 +18,7 @@ var Game = (function () {
     lastTime = 0;
     menuPulse = 0;
     loadScores();
+    loadDifficulty();
     setupCanvas();
     bindGlobalInput();
     requestAnimationFrame(loop);
@@ -98,7 +103,55 @@ var Game = (function () {
       drawMenuButton(buttons[i], cx, cy - 40 + i * 110, cx - 100, 90);
     }
 
+    drawDifficultyToggle(cx, cy + 195);
+
     drawScores(cx, cy + 250);
+  }
+
+  function drawDifficultyToggle(cx, cy) {
+    ctx.font = '13px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#666';
+    ctx.fillText('Difficulty', cx, cy - 22);
+
+    var totalW = 180;
+    var btnW = totalW / 3;
+    var startX = cx - totalW / 2;
+
+    for (var i = 0; i < 3; i++) {
+      var d = difficultyNames[i];
+      var bx = startX + i * btnW;
+      var isSelected = (d === difficulty);
+
+      if (isSelected) {
+        ctx.fillStyle = difficultyColors[d];
+        ctx.shadowColor = difficultyColors[d];
+        ctx.shadowBlur = 8;
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.beginPath();
+      ctx.roundRect(bx + 2, cy - 8, btnW - 4, 28, 6);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+
+      if (!isSelected) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(bx + 2, cy - 8, btnW - 4, 28, 6);
+        ctx.stroke();
+      }
+
+      ctx.font = isSelected ? 'bold 13px "Segoe UI", sans-serif' : '13px "Segoe UI", sans-serif';
+      ctx.fillStyle = isSelected ? '#000' : '#aaa';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(difficultyLabels[d], bx + btnW / 2, cy + 6);
+    }
   }
 
   function drawMatch3Preview(cx, cy) {
@@ -246,9 +299,9 @@ var Game = (function () {
 
     mode = newMode;
 
-    if (mode === 'match3') { Match3.init(canvas, ctx, goToMenu); Match3.setHighScore(highScores.match3 || 0); }
-    else if (mode === 'block') { BlockPuzzle.init(canvas, ctx, goToMenu); BlockPuzzle.setHighScore(highScores.block || 0); }
-    else if (mode === 'mahjong') { Mahjong.init(canvas, ctx, goToMenu); Mahjong.setHighScore(highScores.mahjong || 0); }
+    if (mode === 'match3') { Match3.init(canvas, ctx, goToMenu, difficulty); Match3.setHighScore(highScores.match3 || 0); }
+    else if (mode === 'block') { BlockPuzzle.init(canvas, ctx, goToMenu, difficulty); BlockPuzzle.setHighScore(highScores.block || 0); }
+    else if (mode === 'mahjong') { Mahjong.init(canvas, ctx, goToMenu, difficulty); Mahjong.setHighScore(highScores.mahjong || 0); }
 
     startCalled[mode] = true;
   }
@@ -286,18 +339,32 @@ var Game = (function () {
     var y = (clientY - rect.top) * (canvas.height / rect.height);
     var cy = canvas.height / 2;
 
+    var diffCY = cy + 195;
+    var totalW = 180;
+    var btnW = totalW / 3;
+    var startX = canvas.width / 2 - totalW / 2;
+    if (y >= diffCY - 8 && y <= diffCY + 20) {
+      for (var d = 0; d < 3; d++) {
+        var bx = startX + d * btnW + 2;
+        if (x >= bx && x <= bx + btnW - 4) {
+          difficulty = difficultyNames[d];
+          saveDifficulty();
+          return;
+        }
+      }
+    }
+
     var buttons = [
       { mode: 'match3', y: cy - 5 },
       { mode: 'block', y: cy + 105 },
       { mode: 'mahjong', y: cy + 215 }
     ];
 
-    var bx = canvas.width / 2 - 100, bw = 200;
+    var bx2 = canvas.width / 2 - 100, bw = 200;
     for (var i = 0; i < buttons.length; i++) {
       var by = buttons[i].y - 35;
-      if (x >= bx && x <= bx + bw && y >= by && y <= by + 70) {
+      if (x >= bx2 && x <= bx2 + bw && y >= by && y <= by + 70) {
         switchMode(buttons[i].mode);
-        Sound.click();
         return;
       }
     }
@@ -324,14 +391,30 @@ var Game = (function () {
     }
   }
 
+  function loadDifficulty() {
+    try {
+      var d = localStorage.getItem('triplePuzzleDifficulty');
+      if (d === 'easy' || d === 'normal' || d === 'hard') difficulty = d;
+    } catch (e) { }
+  }
+
+  function saveDifficulty() {
+    try {
+      localStorage.setItem('triplePuzzleDifficulty', difficulty);
+    } catch (e) { }
+  }
+
   window.addEventListener('resize', function () {
     setupCanvas();
-    if (mode === 'match3') { Match3.destroy(); Match3.init(canvas, ctx, goToMenu); Match3.setHighScore(highScores.match3 || 0); }
-    else if (mode === 'block') { BlockPuzzle.destroy(); BlockPuzzle.init(canvas, ctx, goToMenu); BlockPuzzle.setHighScore(highScores.block || 0); }
-    else if (mode === 'mahjong') { Mahjong.destroy(); Mahjong.init(canvas, ctx, goToMenu); Mahjong.setHighScore(highScores.mahjong || 0); }
+    if (mode === 'match3') { Match3.destroy(); Match3.init(canvas, ctx, goToMenu, difficulty); Match3.setHighScore(highScores.match3 || 0); }
+    else if (mode === 'block') { BlockPuzzle.destroy(); BlockPuzzle.init(canvas, ctx, goToMenu, difficulty); BlockPuzzle.setHighScore(highScores.block || 0); }
+    else if (mode === 'mahjong') { Mahjong.destroy(); Mahjong.init(canvas, ctx, goToMenu, difficulty); Mahjong.setHighScore(highScores.mahjong || 0); }
   });
 
   init();
 
-  return {};
+  return {
+    getDifficulty: function () { return difficulty; },
+    getHighScores: function () { return highScores; }
+  };
 })();
