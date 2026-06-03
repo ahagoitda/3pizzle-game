@@ -7,6 +7,10 @@ const BlockPuzzle = (function () {
   var board, score, blocks, selectedBlock, gameOver, animClearing, clearTimer, clearTimeoutId;
   var pointerDown, draggingBlock, dragR, dragC;
   var blockColors;
+  var clearingRows, clearingCols;
+  var comboCount;
+  var highScore;
+  var scorePopups;
   var shapes, shapeColors;
 
   function init(cnv, ctxt, backCb) {
@@ -73,6 +77,10 @@ const BlockPuzzle = (function () {
     draggingBlock = -1;
     dragR = -1;
     dragC = -1;
+    clearingRows = [];
+    clearingCols = [];
+    comboCount = 0;
+    scorePopups = [];
     blocks = generateBlocks(3);
     Effects.reset();
     checkGameOver();
@@ -103,6 +111,8 @@ const BlockPuzzle = (function () {
     if (!block) return false;
     if (!canPlace(block, br, bc)) return false;
 
+    Sound.place();
+
     for (var i = 0; i < block.shape.length; i++) {
       var r = br + block.shape[i][0];
       var c = bc + block.shape[i][1];
@@ -114,23 +124,39 @@ const BlockPuzzle = (function () {
     var points = block.shape.length * 3;
     var cleared = findFullLines();
     if (cleared.rows.length > 0 || cleared.cols.length > 0) {
-      var lineCount = cleared.rows.length + cleared.cols.length;
-      var cellCount = lineCount * COLS;
+      var clearedCells = {};
       for (var ri = 0; ri < cleared.rows.length; ri++) {
         for (var cc = 0; cc < COLS; cc++) {
-          if (board[cleared.rows[ri]][cc] >= 0) cellCount++;
+          var key = cleared.rows[ri] + ',' + cc;
+          if (board[cleared.rows[ri]][cc] >= 0) clearedCells[key] = true;
         }
       }
       for (var ci = 0; ci < cleared.cols.length; ci++) {
         for (var rr = 0; rr < ROWS; rr++) {
-          if (board[rr][cleared.cols[ci]] >= 0 && cleared.rows.indexOf(rr) < 0) cellCount++;
+          var key2 = rr + ',' + cleared.cols[ci];
+          if (board[rr][cleared.cols[ci]] >= 0) clearedCells[key2] = true;
         }
       }
-      points += cellCount * 5;
+      var cellCount = Object.keys(clearedCells).length;
+      var lineCount = cleared.rows.length + cleared.cols.length;
+      comboCount++;
+      var comboMultiplier = comboCount;
+      points += cellCount * 5 * lineCount * comboMultiplier;
       startClearAnimation(cleared);
+      Sound.clear();
+    } else {
+      comboCount = 0;
     }
 
     score += points;
+
+    if (points > 0) {
+      var popX = GRID_X + BOARD_W / 2;
+      var popY = GRID_Y + BOARD_H / 2 - 30;
+      var popText = '+' + points;
+      if (comboCount > 1) popText += ' x' + comboCount;
+      scorePopups.push({ x: popX, y: popY, text: popText, life: 1.0, maxLife: 1.0, color: comboCount > 1 ? '#FFD700' : '#FFFFFF' });
+    }
 
     var placedCells = [];
     for (var j = 0; j < block.shape.length; j++) {
@@ -172,15 +198,30 @@ const BlockPuzzle = (function () {
   function startClearAnimation(cleared) {
     animClearing = true;
     clearTimer = 0.4;
+    clearingRows = cleared.rows.slice();
+    clearingCols = cleared.cols.slice();
+
     for (var i = 0; i < cleared.rows.length; i++) {
       var ry = GRID_Y + cleared.rows[i] * (CELL + GAP) + CELL / 2;
-      Effects.emitLine(GRID_X, ry, GRID_X + BOARD_W, ry, 20, '#FFD700', { speedMin: 40, speedMax: 120, sizeMin: 2, sizeMax: 6 });
+      for (var cc = 0; cc < COLS; cc++) {
+        if (board[cleared.rows[i]][cc] >= 0) {
+          var cx = GRID_X + cc * (CELL + GAP) + CELL / 2;
+          Effects.emit(cx, ry, 4, '#FFD700', { speedMin: 30, speedMax: 80, sizeMin: 2, sizeMax: 5, lifeMin: 0.3, lifeMax: 0.6 });
+        }
+      }
+      Effects.emitLine(GRID_X, ry, GRID_X + BOARD_W, ry, 15, '#FFD700', { speedMin: 40, speedMax: 120, sizeMin: 2, sizeMax: 6 });
     }
     for (var j = 0; j < cleared.cols.length; j++) {
-      var cx = GRID_X + cleared.cols[j] * (CELL + GAP) + CELL / 2;
-      Effects.emitLine(cx, GRID_Y, cx, GRID_Y + BOARD_H, 20, '#FFD700', { speedMin: 40, speedMax: 120, sizeMin: 2, sizeMax: 6 });
+      var cx2 = GRID_X + cleared.cols[j] * (CELL + GAP) + CELL / 2;
+      for (var rr = 0; rr < ROWS; rr++) {
+        if (board[rr][cleared.cols[j]] >= 0) {
+          var cy = GRID_Y + rr * (CELL + GAP) + CELL / 2;
+          Effects.emit(cx2, cy, 4, '#FFD700', { speedMin: 30, speedMax: 80, sizeMin: 2, sizeMax: 5, lifeMin: 0.3, lifeMax: 0.6 });
+        }
+      }
+      Effects.emitLine(cx2, GRID_Y, cx2, GRID_Y + BOARD_H, 15, '#FFD700', { speedMin: 40, speedMax: 120, sizeMin: 2, sizeMax: 6 });
     }
-    Effects.shake(3);
+    Effects.shake(3 + comboCount * 2);
 
     var clearRows = cleared.rows;
     var clearCols = cleared.cols;
@@ -196,6 +237,8 @@ const BlockPuzzle = (function () {
         }
       }
       animClearing = false;
+      clearingRows = [];
+      clearingCols = [];
       clearTimeoutId = null;
     }, 400);
   }
@@ -226,6 +269,7 @@ const BlockPuzzle = (function () {
     }
     if (!hasSpace) {
       gameOver = true;
+      Sound.gameover();
       Effects.emit(canvas.width / 2, canvas.height / 2, 30, '#FF4757', { speedMin: 60, speedMax: 200 });
     }
   }
@@ -264,7 +308,23 @@ const BlockPuzzle = (function () {
 
   function onDown(e) {
     var p = handlePointer(e.touches ? e.touches[0] : e);
-    if (gameOver) { onBack(); return; }
+    if (gameOver) {
+      var cx = canvas.width / 2;
+      var cy = canvas.height / 2;
+      var btnW = 200, btnH = 50, btnY = cy + 40;
+      var btn2Y = btnY + btnH + 15;
+      if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
+        if (p.y >= btnY && p.y <= btnY + btnH) {
+          resetGame();
+          return;
+        }
+        if (p.y >= btn2Y && p.y <= btn2Y + btnH) {
+          onBack();
+          return;
+        }
+      }
+      return;
+    }
     if (p.y < 55 && p.x < 60) { onBack(); return; }
 
     var previewIdx = getPreviewBlockIndex(p.x, p.y);
@@ -337,6 +397,11 @@ const BlockPuzzle = (function () {
       clearTimer -= dt;
       if (clearTimer <= 0) animClearing = false;
     }
+    for (var i = scorePopups.length - 1; i >= 0; i--) {
+      scorePopups[i].life -= dt;
+      scorePopups[i].y -= 30 * dt;
+      if (scorePopups[i].life <= 0) scorePopups.splice(i, 1);
+    }
     Effects.update(dt);
   }
 
@@ -353,6 +418,8 @@ const BlockPuzzle = (function () {
     }
     Effects.render(ctx);
 
+    drawScorePopups();
+
     if (gameOver) drawGameOver();
 
     ctx.restore();
@@ -365,11 +432,18 @@ const BlockPuzzle = (function () {
     ctx.font = 'bold 20px "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Score: ' + score, 20, 36);
+    ctx.fillText('Score: ' + score, 20, 28);
 
     ctx.font = '14px "Segoe UI", sans-serif';
     ctx.fillStyle = '#aaa';
-    ctx.fillText('Back', 20, 52);
+    ctx.fillText('Back', 20, 48);
+
+    if (comboCount > 1) {
+      ctx.font = 'bold 18px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText('COMBO x' + comboCount + '!', canvas.width / 2, 28);
+    }
   }
 
   function drawBoard() {
@@ -391,6 +465,12 @@ const BlockPuzzle = (function () {
   }
 
   function isClearing(r, c) {
+    for (var i = 0; i < clearingRows.length; i++) {
+      if (clearingRows[i] === r) return true;
+    }
+    for (var j = 0; j < clearingCols.length; j++) {
+      if (clearingCols[j] === c) return true;
+    }
     return false;
   }
 
@@ -474,35 +554,89 @@ const BlockPuzzle = (function () {
   function drawGhost(blockIdx, br, bc) {
     if (blockIdx < 0 || !blocks[blockIdx]) return;
     var block = blocks[blockIdx];
-    if (!canPlace(block, br, bc)) return;
+    var canP = canPlace(block, br, bc);
+    var ghostColor = canP ? block.color : -1;
 
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.4;
     for (var i = 0; i < block.shape.length; i++) {
       var r = br + block.shape[i][0];
       var c = bc + block.shape[i][1];
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
       var x = GRID_X + c * (CELL + GAP);
       var y = GRID_Y + r * (CELL + GAP);
-      drawCell(x, y, CELL, block.color, 0.5);
+      if (canP) {
+        drawCell(x, y, CELL, ghostColor, 0.4);
+      } else {
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.beginPath();
+        ctx.roundRect(x, y, CELL, CELL, 6);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
   }
 
   function drawGameOver() {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.font = 'bold 36px "Segoe UI", sans-serif';
+    var cx = canvas.width / 2;
+    var cy = canvas.height / 2;
+
+    ctx.font = 'bold 40px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#FFD700';
-    ctx.fillText('Game Over!', canvas.width / 2, canvas.height / 2 - 30);
+    ctx.textBaseline = 'middle';
 
-    ctx.font = '24px "Segoe UI", sans-serif';
+    ctx.shadowColor = '#FF4757';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = '#FF4757';
+    ctx.fillText('Game Over!', cx, cy - 80);
+    ctx.shadowBlur = 0;
+
+    ctx.font = '28px "Segoe UI", sans-serif';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Score: ' + score, canvas.width / 2, canvas.height / 2 + 20);
+    ctx.fillText('Score: ' + score, cx, cy - 30);
 
-    ctx.font = '18px "Segoe UI", sans-serif';
-    ctx.fillStyle = '#aaa';
-    ctx.fillText('Tap to go back', canvas.width / 2, canvas.height / 2 + 60);
+    if (highScore !== undefined && highScore !== null) {
+      ctx.font = '18px "Segoe UI", sans-serif';
+      ctx.fillStyle = score >= highScore ? '#FFD700' : '#aaa';
+      ctx.fillText(score >= highScore ? 'New High Score!' : 'Best: ' + highScore, cx, cy + 10);
+    }
+
+    var btnW = 200, btnH = 50, btnY = cy + 40;
+    ctx.fillStyle = 'rgba(96, 165, 250, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(cx - btnW / 2, btnY, btnW, btnH, 12);
+    ctx.fill();
+    ctx.font = 'bold 20px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Retry', cx, btnY + btnH / 2);
+
+    var btn2Y = btnY + btnH + 15;
+    ctx.fillStyle = 'rgba(100, 100, 120, 0.7)';
+    ctx.beginPath();
+    ctx.roundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Menu', cx, btn2Y + btnH / 2);
+  }
+
+  function drawScorePopups() {
+    for (var i = 0; i < scorePopups.length; i++) {
+      var sp = scorePopups[i];
+      var alpha = Math.max(0, sp.life / sp.maxLife);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = 'bold 18px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = sp.color;
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = sp.color;
+      ctx.fillText(sp.text, sp.x, sp.y);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
   }
 
   function destroy() {
@@ -515,11 +649,16 @@ const BlockPuzzle = (function () {
     return score;
   }
 
+  function setHighScore(hs) {
+    highScore = hs;
+  }
+
   return {
     init: init,
     destroy: destroy,
     update: update,
     render: render,
-    getScore: getScore
+    getScore: getScore,
+    setHighScore: setHighScore
   };
 })();

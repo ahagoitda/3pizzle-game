@@ -17,6 +17,74 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   };
 }
 
+var Sound = (function () {
+  'use strict';
+
+  var ctx = null;
+  var enabled = true;
+
+  function getCtx() {
+    if (!ctx) {
+      try {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        ctx = null;
+      }
+    }
+    return ctx;
+  }
+
+  function resume() {
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume();
+    }
+  }
+
+  function play(freq, duration, type, vol) {
+    if (!enabled) return;
+    var c = getCtx();
+    if (!c) return;
+    resume();
+    try {
+      var osc = c.createOscillator();
+      var gain = c.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol || 0.15, c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + (duration || 0.1));
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(c.currentTime);
+      osc.stop(c.currentTime + (duration || 0.1));
+    } catch (e) { }
+  }
+
+  function match() { play(880, 0.1, 'sine', 0.12); setTimeout(function () { play(1100, 0.12, 'sine', 0.1); }, 60); }
+  function combo(n) { play(660 + n * 110, 0.15, 'triangle', 0.1); }
+  function place() { play(440, 0.08, 'sine', 0.08); }
+  function clear() { play(660, 0.1, 'triangle', 0.12); setTimeout(function () { play(880, 0.15, 'triangle', 0.1); }, 50); }
+  function invalid() { play(220, 0.12, 'square', 0.06); }
+  function gameover() { play(330, 0.2, 'sawtooth', 0.08); setTimeout(function () { play(260, 0.3, 'sawtooth', 0.06); }, 200); }
+  function win() { play(523, 0.12, 'sine', 0.12); setTimeout(function () { play(659, 0.12, 'sine', 0.12); }, 120); setTimeout(function () { play(784, 0.2, 'sine', 0.12); }, 240); }
+  function click() { play(600, 0.05, 'sine', 0.06); }
+  function mahjongMatch() { play(700, 0.08, 'sine', 0.1); setTimeout(function () { play(900, 0.1, 'sine', 0.08); }, 30); }
+
+  return {
+    match: match,
+    combo: combo,
+    place: place,
+    clear: clear,
+    invalid: invalid,
+    gameover: gameover,
+    win: win,
+    click: click,
+    mahjongMatch: mahjongMatch,
+    resume: resume,
+    play: play,
+    enabled: function (v) { enabled = v; }
+  };
+})();
+
 const Effects = (function () {
   'use strict';
 
@@ -53,7 +121,7 @@ const Effects = (function () {
     var gravity = o.gravity || 0;
 
     for (var i = 0; i < count; i++) {
-      if (poolSize < 200) {
+      if (poolSize < 300) {
         var angle = rand(angleMin, angleMax);
         var speed = rand(speedMin, speedMax);
         var life = rand(lifeMin, lifeMax);

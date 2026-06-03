@@ -101,8 +101,6 @@ var Game = (function () {
     drawScores(cx, cy + 250);
   }
 
-  // --- preview icon drawers ---
-
   function drawMatch3Preview(cx, cy) {
     var colors = ['#FF6B81','#FFD700','#60A5FA','#A855F7','#34D399','#F97316'];
     var grid = 3, cell = 10, gap = 3;
@@ -203,14 +201,12 @@ var Game = (function () {
 
     ctx.shadowBlur = 0;
 
-    // preview icon (left side of button)
     var iconX = bx + 35;
     var iconY = cy;
     if (btn.mode === 'match3') drawMatch3Preview(iconX, iconY);
     else if (btn.mode === 'block') drawBlockPreview(iconX, iconY);
     else if (btn.mode === 'mahjong') drawMahjongPreview(iconX, iconY);
 
-    // text (shifted right to make room for icon)
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 24px "Segoe UI", sans-serif';
@@ -250,9 +246,9 @@ var Game = (function () {
 
     mode = newMode;
 
-    if (mode === 'match3') Match3.init(canvas, ctx, goToMenu);
-    else if (mode === 'block') BlockPuzzle.init(canvas, ctx, goToMenu);
-    else if (mode === 'mahjong') Mahjong.init(canvas, ctx, goToMenu);
+    if (mode === 'match3') { Match3.init(canvas, ctx, goToMenu); Match3.setHighScore(highScores.match3 || 0); }
+    else if (mode === 'block') { BlockPuzzle.init(canvas, ctx, goToMenu); BlockPuzzle.setHighScore(highScores.block || 0); }
+    else if (mode === 'mahjong') { Mahjong.init(canvas, ctx, goToMenu); Mahjong.setHighScore(highScores.mahjong || 0); }
 
     startCalled[mode] = true;
   }
@@ -301,6 +297,7 @@ var Game = (function () {
       var by = buttons[i].y - 35;
       if (x >= bx && x <= bx + bw && y >= by && y <= by + 70) {
         switchMode(buttons[i].mode);
+        Sound.click();
         return;
       }
     }
@@ -329,9 +326,9 @@ var Game = (function () {
 
   window.addEventListener('resize', function () {
     setupCanvas();
-    if (mode === 'match3') { Match3.destroy(); Match3.init(canvas, ctx, goToMenu); }
-    else if (mode === 'block') { BlockPuzzle.destroy(); BlockPuzzle.init(canvas, ctx, goToMenu); }
-    else if (mode === 'mahjong') { Mahjong.destroy(); Mahjong.init(canvas, ctx, goToMenu); }
+    if (mode === 'match3') { Match3.destroy(); Match3.init(canvas, ctx, goToMenu); Match3.setHighScore(highScores.match3 || 0); }
+    else if (mode === 'block') { BlockPuzzle.destroy(); BlockPuzzle.init(canvas, ctx, goToMenu); BlockPuzzle.setHighScore(highScores.block || 0); }
+    else if (mode === 'mahjong') { Mahjong.destroy(); Mahjong.init(canvas, ctx, goToMenu); Mahjong.setHighScore(highScores.mahjong || 0); }
   });
 
   init();
