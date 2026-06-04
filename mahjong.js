@@ -493,8 +493,13 @@ const Mahjong = (function () {
         ctx.globalAlpha = shuffleAlpha;
         ctx.font = 'bold 16px "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#A855F7';
-        ctx.fillText('Shuffled!', canvas.width / 2, canvas.height - 30);
+        ctx.textBaseline = 'middle';
+
+        ctx.fillStyle = '#AB47BC';
+        ctx.shadowColor = '#AB47BC';
+        ctx.shadowBlur = 8;
+        ctx.fillText('\u{1F500} Shuffled!', canvas.width / 2, canvas.height - 30);
+        ctx.shadowBlur = 0;
         ctx.restore();
       }
     }
@@ -503,25 +508,34 @@ const Mahjong = (function () {
   }
 
   function drawHeader() {
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle = 'rgba(243, 229, 245, 0.92)';
     ctx.fillRect(0, 0, canvas.width, 60);
 
-    ctx.font = 'bold 18px "Segoe UI", sans-serif';
+    ctx.strokeStyle = 'rgba(206, 147, 216, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 60);
+    ctx.lineTo(canvas.width, 60);
+    ctx.stroke();
+
+    ctx.font = 'bold 16px "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Score: ' + score, 20, 30);
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#AB47BC';
+    ctx.fillText('\u2B50 ' + score, 16, 22);
 
     ctx.textAlign = 'right';
-    ctx.fillText('Pairs: ' + pairsLeft, canvas.width - 20, 30);
+    ctx.fillStyle = '#5C6BC0';
+    ctx.fillText('Pairs: ' + pairsLeft, canvas.width - 16, 22);
 
-    ctx.font = '13px "Segoe UI", sans-serif';
+    ctx.font = '11px "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#aaa';
-    ctx.fillText('Back', 18, 52);
+    ctx.fillStyle = '#AB47BC';
+    ctx.fillText('\u2190 Back', 16, 44);
 
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#FFD700';
-    ctx.fillText('Hint (-5)   Reset', canvas.width - 18, 52);
+    ctx.fillStyle = '#FF9800';
+    ctx.fillText('Hint\u2728  Reset\u21BA', canvas.width - 16, 44);
   }
 
   function drawAllTiles() {
@@ -704,7 +718,7 @@ const Mahjong = (function () {
   }
 
   function drawWinScreen() {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillStyle = 'rgba(243, 229, 245, 0.85)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     var cx = canvas.width / 2;
@@ -712,41 +726,59 @@ const Mahjong = (function () {
     var alpha = Math.min(1, congratsTime);
     ctx.globalAlpha = alpha;
 
-    ctx.shadowColor = '#FFD700';
-    ctx.shadowBlur = 30;
-    ctx.font = 'bold 44px "Segoe UI", sans-serif';
+    ctx.save();
+    ctx.shadowColor = 'rgba(156, 39, 176, 0.2)';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.roundRect(cx - 130, cy - 130, 260, 290, 20);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = '#CE93D8';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(cx - 130, cy - 130, 260, 290, 20);
+    ctx.stroke();
+
+    ctx.font = 'bold 36px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#FFD700';
-    ctx.fillText('Clear!', cx, cy - 80);
-    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#AB47BC';
+    ctx.fillText('\u{1F3C6} Clear!', cx, cy - 80);
 
-    ctx.font = '24px "Segoe UI", sans-serif';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Score: ' + score, cx, cy - 30);
+    ctx.font = 'bold 22px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#424242';
+    ctx.fillText('\u2B50 ' + score, cx, cy - 35);
 
     if (highScore !== undefined && highScore !== null) {
-      ctx.font = '18px "Segoe UI", sans-serif';
-      ctx.fillStyle = score >= highScore ? '#FFD700' : '#aaa';
-      ctx.fillText(score >= highScore ? 'New High Score!' : 'Best: ' + highScore, cx, cy + 5);
+      ctx.font = '16px "Segoe UI", sans-serif';
+      ctx.fillStyle = score >= highScore ? '#FF9800' : '#9E9E9E';
+      ctx.fillText(score >= highScore ? '\u{1F3C6} New Record!' : 'Best: ' + highScore, cx, cy);
     }
 
-    var btnW = 200, btnH = 50, btnY = cy + 30;
-    ctx.fillStyle = 'rgba(168, 85, 247, 0.9)';
+    var btnW = 200, btnH = 46, btnY = cy + 25;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(156, 39, 176, 0.3)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#AB47BC';
     ctx.beginPath();
     ctx.roundRect(cx - btnW / 2, btnY, btnW, btnH, 12);
     ctx.fill();
-    ctx.font = 'bold 20px "Segoe UI", sans-serif';
+    ctx.restore();
+    ctx.font = 'bold 18px "Segoe UI", sans-serif';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Retry', cx, btnY + btnH / 2);
+    ctx.fillText('\u25B6 Retry', cx, btnY + btnH / 2);
 
-    var btn2Y = btnY + btnH + 15;
-    ctx.fillStyle = 'rgba(100, 100, 120, 0.7)';
+    var btn2Y = btnY + btnH + 12;
+    ctx.fillStyle = '#78909C';
     ctx.beginPath();
     ctx.roundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12);
     ctx.fill();
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Menu', cx, btn2Y + btnH / 2);
+    ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
 
     ctx.globalAlpha = 1;
   }

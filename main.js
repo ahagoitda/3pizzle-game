@@ -8,7 +8,8 @@ var Game = (function () {
   var difficulty = 'normal';
   var difficultyNames = ['easy', 'normal', 'hard'];
   var difficultyLabels = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
-  var difficultyColors = { easy: '#2ED573', normal: '#FFD700', hard: '#FF4757' };
+  var difficultyColors = { easy: '#4CAF50', normal: '#FF9800', hard: '#F44336' };
+  var difficultyBg = { easy: '#E8F5E9', normal: '#FFF3E0', hard: '#FFEBEE' };
 
   function init() {
     canvas = document.getElementById('gameCanvas');
@@ -52,238 +53,186 @@ var Game = (function () {
   function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = '#0f0f23';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (mode === 'menu') {
+      drawMenuBg();
+      drawMenu();
+    } else if (mode === 'match3') {
+      drawGameBg();
+      Match3.render();
+    } else if (mode === 'block') {
+      drawGameBg();
+      BlockPuzzle.render();
+    } else if (mode === 'mahjong') {
+      drawGameBg();
+      Mahjong.render();
+    }
+  }
 
-    var grad = ctx.createRadialGradient(canvas.width / 2, canvas.height * 0.3, 0,
-      canvas.width / 2, canvas.height * 0.3, canvas.height);
-    grad.addColorStop(0, '#1a1a3e');
-    grad.addColorStop(1, '#0a0a1a');
+  function drawMenuBg() {
+    var grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    grad.addColorStop(0, '#E8EAF6');
+    grad.addColorStop(0.5, '#FCE4EC');
+    grad.addColorStop(1, '#E0F7FA');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    if (mode === 'menu') drawMenu();
-    else if (mode === 'match3') Match3.render();
-    else if (mode === 'block') BlockPuzzle.render();
-    else if (mode === 'mahjong') Mahjong.render();
+    for (var i = 0; i < 6; i++) {
+      var bx = (canvas.width * 0.2) + Math.sin(menuPulse * 0.5 + i * 1.2) * canvas.width * 0.3;
+      var by = (canvas.height * 0.15) + Math.cos(menuPulse * 0.3 + i * 0.8) * canvas.height * 0.4;
+      var br = 30 + Math.sin(menuPulse + i) * 10;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawGameBg() {
+    var grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, '#F3E5F5');
+    grad.addColorStop(0.3, '#E8EAF6');
+    grad.addColorStop(1, '#E0F7FA');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function drawRoundRect(x, y, w, h, r, fill, stroke, lw) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 2; ctx.stroke(); }
   }
 
   function drawMenu() {
     var cx = canvas.width / 2;
-    var cy = canvas.height / 2;
+    var cw = canvas.width;
+    var ch = canvas.height;
 
-    ctx.font = 'bold 40px "Segoe UI", sans-serif';
+    ctx.save();
+    ctx.shadowColor = 'rgba(233, 30, 99, 0.3)';
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetY = 3;
+    drawRoundRect(cx - 120, ch * 0.08, 240, 58, 20, '#FF6B81', null);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.restore();
+
+    ctx.font = 'bold 26px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u{1F3AE} Triple Puzzle', cx, ch * 0.08 + 29);
 
-    var glowAlpha = 0.5 + 0.3 * Math.sin(menuPulse * 2);
-    ctx.shadowColor = 'rgba(255, 215, 0, ' + glowAlpha + ')';
-    ctx.shadowBlur = 20;
-
-    var titleGrad = ctx.createLinearGradient(cx - 140, cy - 240, cx + 140, cy - 200);
-    titleGrad.addColorStop(0, '#FFD700');
-    titleGrad.addColorStop(0.5, '#FFEAA7');
-    titleGrad.addColorStop(1, '#FFD700');
-    ctx.fillStyle = titleGrad;
-    ctx.fillText('Triple Puzzle', cx, cy - 220);
-
-    ctx.shadowBlur = 0;
-
-    ctx.font = '16px "Segoe UI", sans-serif';
-    ctx.fillStyle = '#888';
-    ctx.fillText('Match 3  |  Block Puzzle  |  Mahjong', cx, cy - 175);
+    ctx.font = '13px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#9E9E9E';
+    ctx.fillText('Match 3  \u2022  Block Puzzle  \u2022  Mahjong', cx, ch * 0.08 + 70);
 
     var buttons = [
-      { label: 'Anipang', sub: 'Match-3', mode: 'match3', col: '#FF6B81' },
-      { label: 'Block', sub: 'Puzzle', mode: 'block', col: '#60A5FA' },
-      { label: 'Mahjong', sub: 'Solitaire', mode: 'mahjong', col: '#A855F7' }
+      { label: '\u{1F48E} Anipang', sub: 'Match-3 Puzzle', mode: 'match3', bg: '#FF6B81', border: '#E91E63' },
+      { label: '\u{1F9E9} Block', sub: 'Puzzle \u2022 8 Stages', mode: 'block', bg: '#42A5F5', border: '#1E88E5' },
+      { label: '\u{1F004} Mahjong', sub: 'Solitaire', mode: 'mahjong', bg: '#AB47BC', border: '#8E24AA' }
     ];
 
+    var btnW = cw - 60;
+    var btnH = 64;
+    var btnGap = 14;
+    var startY = ch * 0.26;
+
     for (var i = 0; i < buttons.length; i++) {
-      drawMenuButton(buttons[i], cx, cy - 40 + i * 110, cx - 100, 90);
+      var btn = buttons[i];
+      var by = startY + i * (btnH + btnGap);
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.12)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+      drawRoundRect(30, by, btnW, btnH, 14, btn.bg, null);
+      ctx.restore();
+
+      drawRoundRect(30, by, btnW, btnH, 14, btn.bg, btn.border, 2);
+
+      ctx.font = 'bold 18px "Segoe UI", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(btn.label, 46, by + btnH / 2 - 6);
+
+      ctx.font = '11px "Segoe UI", sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillText(btn.sub, 46, by + btnH / 2 + 12);
+
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 22px "Segoe UI", sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillText('\u25B6', 30 + btnW - 18, by + btnH / 2);
     }
 
-    drawDifficultyToggle(cx, cy + 195);
+    drawDifficultyToggle(cx, startY + 3 * (btnH + btnGap) + 8);
 
-    drawScores(cx, cy + 250);
+    drawScores(cx, startY + 3 * (btnH + btnGap) + 58);
   }
 
   function drawDifficultyToggle(cx, cy) {
-    ctx.font = '13px "Segoe UI", sans-serif';
+    ctx.font = '12px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#666';
-    ctx.fillText('Difficulty', cx, cy - 22);
+    ctx.fillStyle = '#9E9E9E';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u2699 Difficulty', cx, cy - 6);
 
-    var totalW = 180;
-    var btnW = totalW / 3;
-    var startX = cx - totalW / 2;
+    var totalW = 200;
+    var btnW = totalW / 3 - 4;
+    var btnH = 30;
+    var startX = cx - totalW / 2 + 2;
+
+    drawRoundRect(cx - totalW / 2, cy + 4, totalW, btnH, 8, '#ECEFF1', '#CFD8DC', 1);
 
     for (var i = 0; i < 3; i++) {
       var d = difficultyNames[i];
-      var bx = startX + i * btnW;
+      var bx = startX + i * (totalW / 3) + 1;
       var isSelected = (d === difficulty);
+      var bw = totalW / 3 - 2;
 
       if (isSelected) {
-        ctx.fillStyle = difficultyColors[d];
+        ctx.save();
         ctx.shadowColor = difficultyColors[d];
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 6;
+        drawRoundRect(bx, cy + 6, bw, btnH - 4, 6, difficultyColors[d], null);
+        ctx.restore();
+
+        ctx.font = 'bold 12px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(difficultyLabels[d], bx + bw / 2, cy + 4 + btnH / 2);
       } else {
-        ctx.fillStyle = 'rgba(255,255,255,0.08)';
-        ctx.shadowBlur = 0;
-      }
-
-      ctx.beginPath();
-      ctx.roundRect(bx + 2, cy - 8, btnW - 4, 28, 6);
-      ctx.fill();
-
-      ctx.shadowBlur = 0;
-
-      if (!isSelected) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(bx + 2, cy - 8, btnW - 4, 28, 6);
-        ctx.stroke();
-      }
-
-      ctx.font = isSelected ? 'bold 13px "Segoe UI", sans-serif' : '13px "Segoe UI", sans-serif';
-      ctx.fillStyle = isSelected ? '#000' : '#aaa';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(difficultyLabels[d], bx + btnW / 2, cy + 6);
-    }
-  }
-
-  function drawMatch3Preview(cx, cy) {
-    var colors = ['#FF6B81','#FFD700','#60A5FA','#A855F7','#34D399','#F97316'];
-    var grid = 3, cell = 10, gap = 3;
-    var total = grid * cell + (grid - 1) * gap;
-    var ox = cx - total / 2;
-    var oy = cy - total / 2;
-    ctx.save();
-    ctx.shadowBlur = 0;
-    for (var r = 0; r < grid; r++) {
-      for (var c = 0; c < grid; c++) {
-        var col = colors[(r * grid + c) % colors.length];
-        var x = ox + c * (cell + gap);
-        var y = oy + r * (cell + gap);
-        ctx.fillStyle = col;
-        ctx.beginPath();
-        ctx.arc(x + cell / 2, y + cell / 2, cell / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.beginPath();
-        ctx.arc(x + cell / 2 - 2, y + cell / 2 - 2, cell / 5, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.font = '12px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#90A4AE';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(difficultyLabels[d], bx + bw / 2, cy + 4 + btnH / 2);
       }
     }
-    ctx.restore();
-  }
-
-  function drawBlockPreview(cx, cy) {
-    var shapes = [
-      [[0,0],[1,0],[2,0]],
-      [[0,1],[0,2]],
-      [[1,1],[2,1],[2,2]]
-    ];
-    var cell = 9, gap = 2;
-    var ox = cx - (3 * (cell + gap)) / 2;
-    var oy = cy - (3 * (cell + gap)) / 2;
-    ctx.save();
-    ctx.shadowBlur = 0;
-    for (var s = 0; s < shapes.length; s++) {
-      var shade = s === 0 ? '#93C5FD' : s === 1 ? '#60A5FA' : '#3B82F6';
-      ctx.fillStyle = shade;
-      for (var t = 0; t < shapes[s].length; t++) {
-        var bx = ox + shapes[s][t][0] * (cell + gap);
-        var by = oy + shapes[s][t][1] * (cell + gap);
-        ctx.beginPath();
-        ctx.roundRect(bx, by, cell, cell, 2);
-        ctx.fill();
-      }
-    }
-    ctx.restore();
-  }
-
-  function drawMahjongPreview(cx, cy) {
-    var tiles = [
-      {x: -16, y: -10}, {x: -4, y: -10}, {x: 8, y: -10},
-      {x: -10, y:  4}, {x:  2, y:  4}
-    ];
-    ctx.save();
-    ctx.shadowBlur = 0;
-    for (var i = 0; i < tiles.length; i++) {
-      var tx = cx + tiles[i].x;
-      var ty = cy + tiles[i].y;
-      ctx.fillStyle = 'rgba(168,85,247,0.25)';
-      ctx.beginPath();
-      ctx.roundRect(tx, ty, 11, 14, 2);
-      ctx.fill();
-      ctx.strokeStyle = '#A855F7';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(tx, ty, 11, 14, 2);
-      ctx.stroke();
-      ctx.fillStyle = '#D8B4FE';
-      ctx.font = 'bold 7px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(['一','二','三','四','五'][i], tx + 5.5, ty + 7);
-    }
-    ctx.restore();
-  }
-
-  function drawMenuButton(btn, cx, cy, bx, bw) {
-    ctx.shadowColor = btn.col;
-    ctx.shadowBlur = 10 + 5 * Math.sin(menuPulse * 1.5 + (btn.mode === 'match3' ? 0 : btn.mode === 'block' ? 2 : 4));
-
-    var btnGrad = ctx.createLinearGradient(bx, cy - 35, bx, cy + 35);
-    btnGrad.addColorStop(0, 'rgba(255,255,255,0.08)');
-    btnGrad.addColorStop(0.5, 'rgba(255,255,255,0.04)');
-    btnGrad.addColorStop(1, 'rgba(255,255,255,0.01)');
-    ctx.fillStyle = btnGrad;
-    ctx.beginPath();
-    ctx.roundRect(bx, cy - 35, bw, 70, 16);
-    ctx.fill();
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(bx, cy - 35, bw, 70, 16);
-    ctx.stroke();
-
-    ctx.shadowBlur = 0;
-
-    var iconX = bx + 35;
-    var iconY = cy;
-    if (btn.mode === 'match3') drawMatch3Preview(iconX, iconY);
-    else if (btn.mode === 'block') drawBlockPreview(iconX, iconY);
-    else if (btn.mode === 'mahjong') drawMahjongPreview(iconX, iconY);
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = 'bold 24px "Segoe UI", sans-serif';
-    ctx.fillStyle = btn.col;
-    ctx.fillText(btn.label, cx + 20, cy - 8);
-
-    ctx.font = '12px "Segoe UI", sans-serif';
-    ctx.fillStyle = '#aaa';
-    ctx.fillText(btn.sub, cx + 20, cy + 16);
   }
 
   function drawScores(cx, cy) {
-    ctx.font = '13px "Segoe UI", sans-serif';
+    ctx.save();
+    drawRoundRect(cx - 100, cy - 12, 200, 38, 10, '#FFFFFF', '#E0E0E0', 1);
+    ctx.restore();
+
+    ctx.font = '12px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#666';
-    ctx.fillText('High Scores', cx, cy - 15);
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#9E9E9E';
+    ctx.fillText('\u2B50 Best Scores', cx, cy);
 
-    var scoreText = '';
-    if (highScores.match3) scoreText += 'Match: ' + highScores.match3 + '  ';
-    if (highScores.block) scoreText += 'Block: ' + highScores.block + '  ';
-    if (highScores.mahjong) scoreText += 'Mahjong: ' + highScores.mahjong;
-
-    if (scoreText) {
-      ctx.fillText(scoreText, cx, cy + 5);
+    var scores = [];
+    if (highScores.match3) scores.push('M:' + highScores.match3);
+    if (highScores.block) scores.push('B:' + highScores.block);
+    if (highScores.mahjong) scores.push('S:' + highScores.mahjong);
+    if (scores.length > 0) {
+      ctx.fillStyle = '#FF6B81';
+      ctx.font = 'bold 12px "Segoe UI", sans-serif';
+      ctx.fillText(scores.join('  '), cx, cy + 15);
     }
   }
 
@@ -337,34 +286,38 @@ var Game = (function () {
     var rect = canvas.getBoundingClientRect();
     var x = (clientX - rect.left) * (canvas.width / rect.width);
     var y = (clientY - rect.top) * (canvas.height / rect.height);
-    var cy = canvas.height / 2;
+    var cw = canvas.width;
+    var ch = canvas.height;
 
-    var diffCY = cy + 195;
-    var totalW = 180;
-    var btnW = totalW / 3;
-    var startX = canvas.width / 2 - totalW / 2;
-    if (y >= diffCY - 8 && y <= diffCY + 20) {
+    var diffCY = ch * 0.26 + 3 * 78 + 8 + 22;
+    var totalW = 200;
+    var startX = cw / 2 - totalW / 2 + 2;
+    var diffBtnH = 26;
+    var diffTopY = diffCY - 6 + 10;
+    if (y >= diffTopY && y <= diffTopY + diffBtnH) {
       for (var d = 0; d < 3; d++) {
-        var bx = startX + d * btnW + 2;
-        if (x >= bx && x <= bx + btnW - 4) {
+        var bx = startX + d * (totalW / 3) + 1;
+        var bw = totalW / 3 - 2;
+        if (x >= bx && x <= bx + bw) {
           difficulty = difficultyNames[d];
           saveDifficulty();
+          Sound.click();
           return;
         }
       }
     }
 
-    var buttons = [
-      { mode: 'match3', y: cy - 5 },
-      { mode: 'block', y: cy + 105 },
-      { mode: 'mahjong', y: cy + 215 }
-    ];
+    var btnW = cw - 60;
+    var btnH = 64;
+    var btnGap = 14;
+    var startY = ch * 0.26;
+    var buttons = ['match3', 'block', 'mahjong'];
 
-    var bx2 = canvas.width / 2 - 100, bw = 200;
     for (var i = 0; i < buttons.length; i++) {
-      var by = buttons[i].y - 35;
-      if (x >= bx2 && x <= bx2 + bw && y >= by && y <= by + 70) {
-        switchMode(buttons[i].mode);
+      var by = startY + i * (btnH + btnGap);
+      if (x >= 30 && x <= 30 + btnW && y >= by && y <= by + btnH) {
+        Sound.click();
+        switchMode(buttons[i]);
         return;
       }
     }
