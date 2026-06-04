@@ -3,19 +3,20 @@ const BlockPuzzle = (function () {
 
   var ROWS = 10, COLS = 10, CELL = 40, GAP = 2;
   var BOARD_W, BOARD_H, GRID_X, GRID_Y, PREVIEW_Y;
-  var canvas, ctx, onBack;
+var canvas, ctx, onBack;
   var board, boardMask, score, blocks, selectedBlock, gameOver, animClearing, clearTimer, clearTimeoutId;
   var pointerDown, draggingBlock, dragR, dragC;
   var blockColors;
   var clearingRows, clearingCols;
   var comboCount;
-var highScore;
+  var highScore;
   var scorePopups;
   var difficulty;
   var gameState;
   var currentStage;
-  var stageScrollY;
   var menuPulse2;
+  var shapes;
+  var shapeColors;
 
   var boardShapes = [
     {
@@ -205,9 +206,14 @@ var highScore;
       { main: '#EC4899', light: '#F472B6', dark: '#9D174D' }
     ];
 
-    gameState = 'stageselect';
-    currentStage = 0;
-    stageScrollY = 0;
+    if (!gameState) {
+      gameState = 'stageselect';
+      currentStage = 0;
+    } else if (gameState === 'playing') {
+      boardMask = parseMask(boardShapes[currentStage].mask);
+      resetGame();
+      gameState = 'playing';
+    }
     menuPulse2 = 0;
 
     bindInput();
@@ -253,8 +259,8 @@ var highScore;
 
   function generateBlocks(count) {
     var result = [];
-    var maxIdx = difficulty === 'easy' ? 8 : difficulty === 'hard' ? shapes.length : shapes.length;
     var minIdx = 0;
+    var maxIdx = shapes.length;
     if (difficulty === 'easy') {
       minIdx = 0;
       maxIdx = 10;
@@ -484,7 +490,7 @@ var highScore;
 
   function getPreviewBlockIndex(x, y) {
     if (y < PREVIEW_Y) return -1;
-    var gap = 12;
+    var gap = 16;
     var previewCell = 26;
     var areaW = 3 * (previewCell * 3 + 8) + 2 * gap;
     var startX = GRID_X + Math.floor((BOARD_W - areaW) / 2);
@@ -558,19 +564,18 @@ var highScore;
 
   function handleStageSelectClick(p) {
     var cx = canvas.width / 2;
-    var cy = 80;
-    var cellSize = 18;
-    var gap2 = 3;
+    var cellSize = 16;
+    var gap2 = 2;
     var cardW = 4 * (cellSize + gap2) + 16;
-    var cardH = 4 * (cellSize + gap2) + 40;
+    var cardH = 4 * (cellSize + gap2) + 38;
     var cols2 = 2;
-    var cardGap = 12;
+    var cardGap = 10;
     var totalW = cols2 * cardW + (cols2 - 1) * cardGap;
     var startX = cx - totalW / 2;
-    var startY = 140;
+    var startY = 105;
 
-    var backY = canvas.height - 50;
-    if (p.y >= backY - 15 && p.y <= backY + 15 && p.x >= cx - 40 && p.x <= cx + 40) {
+    var backY = canvas.height - 40;
+    if (p.y >= backY - 16 && p.y <= backY + 16 && p.x >= cx - 60 && p.x <= cx + 60) {
       onBack();
       return;
     }

@@ -15,6 +15,7 @@ const Match3 = (function () {
   var specialGems;
   var highScore;
   var difficulty;
+  var maxTime;
 
   var GEM_NORMAL = 0;
   var GEM_LINE_H = 1;
@@ -64,6 +65,7 @@ const Match3 = (function () {
     if (difficulty === 'easy') timeLeft = 90;
     else if (difficulty === 'hard') timeLeft = 45;
     else timeLeft = 60;
+    maxTime = timeLeft;
     selected = null;
     animState = 'idle';
     animTimer = 0;
@@ -843,7 +845,7 @@ function drawTimerAndScore() {
     var barY = 50;
     var barW = canvas.width - 32;
     var barH = 12;
-    var progress = Math.max(0, timeLeft / 60);
+    var progress = Math.max(0, timeLeft / maxTime);
 
     ctx.fillStyle = '#E8EAF6';
     ctx.beginPath();

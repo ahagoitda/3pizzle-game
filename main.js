@@ -289,11 +289,11 @@ var Game = (function () {
     var cw = canvas.width;
     var ch = canvas.height;
 
-    var diffCY = ch * 0.26 + 3 * 78 + 8 + 22;
+    var diffCY = ch * 0.26 + 3 * 78 + 8;
     var totalW = 200;
     var startX = cw / 2 - totalW / 2 + 2;
-    var diffBtnH = 26;
-    var diffTopY = diffCY - 6 + 10;
+    var diffBtnH = 30;
+    var diffTopY = diffCY + 4;
     if (y >= diffTopY && y <= diffTopY + diffBtnH) {
       for (var d = 0; d < 3; d++) {
         var bx = startX + d * (totalW / 3) + 1;
