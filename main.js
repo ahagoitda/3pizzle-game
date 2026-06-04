@@ -10,6 +10,13 @@ var Game = (function () {
   var difficultyLabels = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
   var difficultyColors = { easy: '#4CAF50', normal: '#FF9800', hard: '#F44336' };
   var difficultyBg = { easy: '#E8F5E9', normal: '#FFF3E0', hard: '#FFEBEE' };
+  var deferredPrompt = null;
+  var installDismissed = false;
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+  });
 
   function init() {
     canvas = document.getElementById('gameCanvas');
@@ -170,6 +177,10 @@ var Game = (function () {
     drawDifficultyToggle(cx, startY + 3 * (btnH + btnGap) + 8);
 
     drawScores(cx, startY + 3 * (btnH + btnGap) + 58);
+
+    if (deferredPrompt && !installDismissed) {
+      drawInstallBanner(cx, startY + 3 * (btnH + btnGap) + 110);
+    }
   }
 
   function drawDifficultyToggle(cx, cy) {
@@ -234,6 +245,29 @@ var Game = (function () {
       ctx.font = 'bold 12px "Segoe UI", sans-serif';
       ctx.fillText(scores.join('  '), cx, cy + 15);
     }
+  }
+
+  function drawInstallBanner(cx, cy) {
+    var bw = canvas.width - 60;
+    var bh = 44;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(76, 175, 80, 0.3)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    drawRoundRect(30, cy, bw, bh, 12, '#4CAF50', null);
+    ctx.restore();
+    drawRoundRect(30, cy, bw, bh, 12, null, '#388E3C', 1.5);
+
+    ctx.font = 'bold 15px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u2B07 Install App', cx, cy + bh / 2 - 2);
+
+    ctx.font = '10px "Segoe UI", sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('\u2715', 30 + bw - 16, cy + 12);
   }
 
   function switchMode(newMode) {
@@ -304,6 +338,27 @@ var Game = (function () {
           Sound.click();
           return;
         }
+      }
+    }
+
+    if (deferredPrompt && !installDismissed) {
+      var instY = ch * 0.26 + 3 * 78 + 110;
+      var instW = cw - 60;
+      var instH = 44;
+      if (x >= 30 && x <= 30 + instW && y >= instY && y <= instY + instH) {
+        var closeX = 30 + instW - 16;
+        if (x >= closeX - 10 && x <= closeX + 10 && y >= instY + 4 && y <= instY + 20) {
+          installDismissed = true;
+          return;
+        }
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function (result) {
+          if (result.outcome === 'accepted') {
+            installDismissed = true;
+          }
+          deferredPrompt = null;
+        });
+        return;
       }
     }
 

@@ -1,0 +1,25 @@
+{
+  "name": "3Pizzle - Triple Puzzle",
+  "short_name": "3Pizzle",
+  "description": "3-in-1 puzzle game: Match-3, Block Puzzle, Mahjong Solitaire",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3E5F5",
+  "theme_color": "#E91E63",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["games", "entertainment"]
+}
