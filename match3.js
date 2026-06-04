@@ -962,8 +962,8 @@ ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
     if (animState === 'gameover') {
       var cx = canvas.width / 2;
       var cy = canvas.height / 2;
-      var btnW = 200, btnH = 50, btnY = cy + 50;
-      var btn2Y = btnY + btnH + 15;
+      var btnW = 200, btnH = 46, btnY = cy + 25;
+      var btn2Y = btnY + btnH + 12;
       if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
         if (p.y >= btnY && p.y <= btnY + btnH) {
           resetGame();

@@ -509,9 +509,9 @@ var highScore;
     if (gameOver) {
       var cx = canvas.width / 2;
       var cy = canvas.height / 2;
-      var btnW = 200, btnH = 50, btnY = cy + 40;
-      var btn2Y = btnY + btnH + 15;
-      var btn3Y = btn2Y + btnH + 15;
+      var btnW = 200, btnH = 46, btnY = cy - 5;
+      var btn2Y = btnY + btnH + 10;
+      var btn3Y = btn2Y + btnH + 10;
       if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
         if (p.y >= btnY && p.y <= btnY + btnH) {
           resetGame();
