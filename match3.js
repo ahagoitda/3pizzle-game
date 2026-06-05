@@ -606,18 +606,18 @@ const Match3 = (function () {
 
     drawScorePopups();
 
-    // 10초 이하 붉은 위네트 효과 (긴박감 부여)
+    // 10초 이하 붉은색 임박 연출 (전체 화면 약간 불투명 펄스 연출)
     if (timeLeft > 0 && timeLeft <= 10 && animState !== 'gameover') {
-      var pulse = 0.3 + 0.25 * Math.sin(Date.now() / 150);
-      var grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.width * 0.4, canvas.width / 2, canvas.height / 2, canvas.width * 0.85);
-      grad.addColorStop(0, 'rgba(229, 57, 53, 0)');
-      grad.addColorStop(1, 'rgba(229, 57, 53, ' + (pulse * 0.5) + ')');
-      ctx.fillStyle = grad;
+      var pulse = 0.08 + 0.07 * Math.sin(Date.now() / 150);
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 0, 0, ' + pulse + ')';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      ctx.strokeStyle = 'rgba(229, 57, 53, ' + pulse + ')';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+      var borderPulse = 0.4 + 0.3 * Math.sin(Date.now() / 150);
+      ctx.strokeStyle = 'rgba(255, 61, 0, ' + borderPulse + ')';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+      ctx.restore();
     }
 
     if (animState === 'gameover') {
