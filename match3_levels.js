@@ -14,7 +14,14 @@ var Match3Levels = (function() {
     { id: '2-2', world: 2, target: 8000, time: 55, colors: 5, name: 'Glowing Crystals 💎' },
     { id: '2-3', world: 2, target: 10000, time: 50, colors: 6, name: 'Echoing Chasm 🔊' },
     { id: '2-4', world: 2, target: 12000, time: 45, colors: 6, name: 'Subterranean River 🌊' },
-    { id: '2-5', world: 2, target: 15000, time: 40, colors: 6, name: 'Neon Heart 🌟' }
+    { id: '2-5', world: 2, target: 15000, time: 40, colors: 6, name: 'Neon Heart 🌟' },
+
+    // World 3: Volcanic Core
+    { id: '3-1', world: 3, target: 18000, time: 60, colors: 5, name: 'Lava Vent 🌋' },
+    { id: '3-2', world: 3, target: 22000, time: 55, colors: 5, name: 'Magma Chamber 🔥' },
+    { id: '3-3', world: 3, target: 26000, time: 50, colors: 6, name: 'Obsidian Crag 🧱' },
+    { id: '3-4', world: 3, target: 30000, time: 45, colors: 6, name: 'Sulfur Spring 💨' },
+    { id: '3-5', world: 3, target: 35000, time: 40, colors: 6, name: 'Volcano Heart 💖' }
   ];
 
   function getUnlockedLevel() {

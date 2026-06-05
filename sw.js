@@ -1,4 +1,4 @@
-var CACHE_NAME = '3pizzle-v8';
+var CACHE_NAME = '3pizzle-v9';
 var CACHE_URLS = [
   './',
   './index.html',

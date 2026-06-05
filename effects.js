@@ -162,6 +162,20 @@ var Sound = (function () {
     play(330, 0.12, 'sine', 0.06, 0.07);
   }
 
+  function feverStart() {
+    play(523.25, 0.08, 'sawtooth', 0.10, 0);
+    play(659.25, 0.08, 'sawtooth', 0.10, 0.06);
+    play(783.99, 0.08, 'sawtooth', 0.10, 0.12);
+    play(1046.50, 0.25, 'sine', 0.15, 0.18);
+    play(1318.51, 0.35, 'sine', 0.12, 0.24);
+  }
+
+  function lockBreak() {
+    play(480, 0.05, 'triangle', 0.12, 0);
+    play(320, 0.06, 'square', 0.08, 0.03);
+    play(640, 0.10, 'sine', 0.10, 0.06);
+  }
+
   function setEnabled(v) {
     enabled = v;
     try {
@@ -191,15 +205,29 @@ var Sound = (function () {
       if (!c) return;
       resume();
 
+      var isFever = false;
+      try {
+        if (window.Match3 && typeof window.Match3.isFeverActive === 'function') {
+          isFever = window.Match3.isFeverActive();
+        }
+      } catch (e) {}
+
       var melodyFreq = melodyPattern[bgmStep % 16];
-      play(melodyFreq, 0.22, 'sine', 0.025);
+      if (isFever) {
+        // Play higher pitch and triangle wave for energetic feeling
+        play(melodyFreq * 1.5, 0.12, 'triangle', 0.03);
+        // Snare/hi-hat on every step during fever
+        play(11000, 0.015, 'sawtooth', 0.007);
+      } else {
+        play(melodyFreq, 0.22, 'sine', 0.025);
+      }
 
       if (bgmStep % 4 === 0) {
         var bassFreq = bassPattern[bgmStep % 16];
-        play(bassFreq, 0.45, 'triangle', 0.045);
+        play(isFever ? bassFreq * 1.5 : bassFreq, 0.45, 'triangle', 0.045);
       }
 
-      if (bgmStep % 2 === 1) {
+      if (bgmStep % 2 === 1 && !isFever) {
         play(9000, 0.02, 'triangle', 0.006);
       }
 
@@ -225,6 +253,8 @@ var Sound = (function () {
     click: click,
     mahjongMatch: mahjongMatch,
     undo: undo,
+    feverStart: feverStart,
+    lockBreak: lockBreak,
     resume: resume,
     play: play,
     enabled: setEnabled,

@@ -4,7 +4,7 @@ const Match3 = (function () {
   var COLS = 8, ROWS = 8, GEM = 54, GAP = 3;
   var BOARD_W, BOARD_H, GRID_X, GRID_Y;
   var canvas, ctx, onBack;
-  var grid, score, combo, timeLeft;
+  var grid, score, combo, timeLeft, lockedGems;
   var selected, animState, animTimer, matchCells, swapData, removalData;
   var pointerDown, pointerCell, swipeStart;
   var gameOverTime;
@@ -105,17 +105,21 @@ const Match3 = (function () {
 
     grid = [];
     specialGems = [];
+    lockedGems = [];
     for (var r = 0; r < ROWS; r++) {
       grid[r] = [];
       specialGems[r] = [];
+      lockedGems[r] = [];
       for (var c = 0; c < COLS; c++) {
         var t;
         do { t = Math.floor(Math.random() * numColors); }
         while (wouldMatch(r, c, t));
         grid[r][c] = t;
         specialGems[r][c] = GEM_NORMAL;
+        lockedGems[r][c] = false;
       }
     }
+    initializeLocks();
     score = 0;
     combo = 0;
     selected = null;
@@ -145,6 +149,78 @@ const Match3 = (function () {
     if (c >= 2 && grid[r][c - 1] === type && grid[r][c - 2] === type) return true;
     if (r >= 2 && grid[r - 1] && grid[r - 1][c] === type && grid[r - 2] && grid[r - 2][c] === type) return true;
     return false;
+  }
+
+  function initializeLocks() {
+    var lvl = Match3Levels.getLevel(currentLevelId);
+    var world = lvl.world;
+    var lvlNum = parseInt(lvl.id.split('-')[1], 10) || 1;
+
+    if (world === 1) {
+      return;
+    }
+
+    if (world === 2) {
+      if (lvlNum === 2) {
+        lockedGems[3][3] = true;
+        lockedGems[4][4] = true;
+      } else if (lvlNum === 3) {
+        lockedGems[2][3] = true;
+        lockedGems[4][2] = true;
+        lockedGems[5][4] = true;
+      } else if (lvlNum === 4) {
+        lockedGems[2][2] = true;
+        lockedGems[2][5] = true;
+        lockedGems[5][2] = true;
+        lockedGems[5][5] = true;
+      } else if (lvlNum === 5) {
+        lockedGems[2][2] = true;
+        lockedGems[2][5] = true;
+        lockedGems[3][3] = true;
+        lockedGems[4][4] = true;
+        lockedGems[5][2] = true;
+        lockedGems[5][5] = true;
+      }
+    } else if (world === 3) {
+      if (lvlNum === 1) {
+        lockedGems[1][3] = true;
+        lockedGems[3][1] = true;
+        lockedGems[3][5] = true;
+        lockedGems[5][3] = true;
+      } else if (lvlNum === 2) {
+        lockedGems[2][2] = true;
+        lockedGems[3][2] = true;
+        lockedGems[4][2] = true;
+        lockedGems[2][5] = true;
+        lockedGems[3][5] = true;
+        lockedGems[4][5] = true;
+      } else if (lvlNum === 3) {
+        lockedGems[3][1] = true;
+        lockedGems[3][2] = true;
+        lockedGems[3][3] = true;
+        lockedGems[3][4] = true;
+        lockedGems[3][5] = true;
+        lockedGems[3][6] = true;
+      } else if (lvlNum === 4) {
+        lockedGems[1][1] = true;
+        lockedGems[1][6] = true;
+        lockedGems[3][3] = true;
+        lockedGems[3][4] = true;
+        lockedGems[4][3] = true;
+        lockedGems[4][4] = true;
+        lockedGems[6][1] = true;
+        lockedGems[6][6] = true;
+      } else if (lvlNum === 5) {
+        lockedGems[2][3] = true;
+        lockedGems[2][4] = true;
+        lockedGems[3][2] = true;
+        lockedGems[3][5] = true;
+        lockedGems[4][2] = true;
+        lockedGems[4][5] = true;
+        lockedGems[5][3] = true;
+        lockedGems[5][4] = true;
+      }
+    }
   }
 
   function getCell(x, y) {
@@ -345,27 +421,30 @@ const Match3 = (function () {
 
   function applyGravity() {
     for (var c = 0; c < COLS; c++) {
-      var writeRow = ROWS - 1;
+      var nonLocked = [];
       for (var r = ROWS - 1; r >= 0; r--) {
-        if (grid[r][c] >= 0) {
-          grid[writeRow][c] = grid[r][c];
-          specialGems[writeRow][c] = specialGems[r][c];
-          if (writeRow !== r) {
-            grid[r][c] = -1;
-            specialGems[r][c] = GEM_NORMAL;
-          }
-          writeRow--;
+        if (!lockedGems[r][c] && grid[r][c] >= 0) {
+          nonLocked.push({ type: grid[r][c], special: specialGems[r][c] });
         }
       }
-      while (writeRow >= 0) {
-        var newGem = Math.floor(Math.random() * numColors);
-        var special = GEM_NORMAL;
-        if (feverActive && Math.random() < 0.08) {
-          special = Math.floor(Math.random() * 3) + 1; // GEM_LINE_H, GEM_LINE_V, or GEM_BOMB
+      
+      var idx = 0;
+      for (var r = ROWS - 1; r >= 0; r--) {
+        if (!lockedGems[r][c]) {
+          if (idx < nonLocked.length) {
+            grid[r][c] = nonLocked[idx].type;
+            specialGems[r][c] = nonLocked[idx].special;
+            idx++;
+          } else {
+            var newGem = Math.floor(Math.random() * numColors);
+            var special = GEM_NORMAL;
+            if (feverActive && Math.random() < 0.08) {
+              special = Math.floor(Math.random() * 3) + 1; // GEM_LINE_H, GEM_LINE_V, or GEM_BOMB
+            }
+            grid[r][c] = newGem;
+            specialGems[r][c] = special;
+          }
         }
-        grid[writeRow][c] = newGem;
-        specialGems[writeRow][c] = special;
-        writeRow--;
       }
     }
   }
@@ -409,8 +488,21 @@ const Match3 = (function () {
 
     var uniqueCells = [];
     var keys = Object.keys(allToRemove);
+    var lockBrokenThisStep = false;
     for (var k = 0; k < keys.length; k++) {
-      uniqueCells.push(allToRemove[keys[k]]);
+      var cell = allToRemove[keys[k]];
+      if (lockedGems[cell.r][cell.c]) {
+        lockedGems[cell.r][cell.c] = false;
+        lockBrokenThisStep = true;
+        var cp = cellCenter(cell.r, cell.c);
+        Effects.emit(cp.x, cp.y, 12, '#B0BEC5', { speedMin: 50, speedMax: 150, sizeMin: 3, sizeMax: 6, lifeMin: 0.4, lifeMax: 0.8 });
+        continue;
+      }
+      uniqueCells.push(cell);
+    }
+
+    if (lockBrokenThisStep) {
+      Sound.lockBreak();
     }
 
     removalData = [];
@@ -434,7 +526,7 @@ const Match3 = (function () {
     score += baseScore;
 
     if (isFeverTriggered) {
-      Sound.win();
+      Sound.feverStart();
       Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FFD700', { speedMin: 80, speedMax: 200, sizeMin: 4, sizeMax: 8 });
       scorePopups.push({ x: canvas.width / 2, y: canvas.height / 2 - 20, text: 'FEVER TIME! ✨', life: 2.0, maxLife: 2.0, color: '#FFD700' });
     }
@@ -442,11 +534,17 @@ const Match3 = (function () {
     if (combo > 1) Sound.combo(combo);
     else Sound.match();
 
-    var popP = cellCenter(Math.round(uniqueCells.reduce(function(s, c2) { return s + c2.r; }, 0) / uniqueCells.length),
-                           Math.round(uniqueCells.reduce(function(s, c2) { return s + c2.c; }, 0) / uniqueCells.length));
-    var scoreText = '+' + baseScore;
-    if (feverActive && !isFeverTriggered) scoreText += ' FEVER!';
-    scorePopups.push({ x: popP.x, y: popP.y, text: scoreText, life: 1.0, maxLife: 1.0, color: feverActive ? '#FFD700' : (combo > 1 ? '#FFD700' : '#FFFFFF') });
+    if (uniqueCells.length > 0) {
+      var popP = cellCenter(Math.round(uniqueCells.reduce(function(s, c2) { return s + c2.r; }, 0) / uniqueCells.length),
+                             Math.round(uniqueCells.reduce(function(s, c2) { return s + c2.c; }, 0) / uniqueCells.length));
+      var scoreText = '+' + baseScore;
+      if (feverActive && !isFeverTriggered) scoreText += ' FEVER!';
+      scorePopups.push({ x: popP.x, y: popP.y, text: scoreText, life: 1.0, maxLife: 1.0, color: feverActive ? '#FFD700' : (combo > 1 ? '#FFD700' : '#FFFFFF') });
+    } else if (lockBrokenThisStep) {
+      var popP = cellCenter(Math.round(cells.reduce(function(s, c2) { return s + c2.r; }, 0) / cells.length),
+                             Math.round(cells.reduce(function(s, c2) { return s + c2.c; }, 0) / cells.length));
+      scorePopups.push({ x: popP.x, y: popP.y, text: 'Unlocked! 🔓', life: 1.0, maxLife: 1.0, color: '#90A4AE' });
+    }
 
     for (var i2 = 0; i2 < uniqueCells.length; i2++) {
       var p = cellCenter(uniqueCells[i2].r, uniqueCells[i2].c);
@@ -475,16 +573,20 @@ const Match3 = (function () {
     for (var r = 0; r < ROWS; r++) {
       for (var c = 0; c < COLS; c++) {
         if (c + 1 < COLS) {
-          swap({ r: r, c: c }, { r: r, c: c + 1 });
-          var m1 = findMatches();
-          swap({ r: r, c: c }, { r: r, c: c + 1 });
-          if (m1.length > 0) return true;
+          if (!lockedGems[r][c] && !lockedGems[r][c + 1]) {
+            swap({ r: r, c: c }, { r: r, c: c + 1 });
+            var m1 = findMatches();
+            swap({ r: r, c: c }, { r: r, c: c + 1 });
+            if (m1.length > 0) return true;
+          }
         }
         if (r + 1 < ROWS) {
-          swap({ r: r, c: c }, { r: r + 1, c: c });
-          var m2 = findMatches();
-          swap({ r: r, c: c }, { r: r + 1, c: c });
-          if (m2.length > 0) return true;
+          if (!lockedGems[r][c] && !lockedGems[r + 1][c]) {
+            swap({ r: r, c: c }, { r: r + 1, c: c });
+            var m2 = findMatches();
+            swap({ r: r, c: c }, { r: r + 1, c: c });
+            if (m2.length > 0) return true;
+          }
         }
       }
     }
@@ -495,16 +597,20 @@ const Match3 = (function () {
     for (var r = 0; r < ROWS; r++) {
       for (var c = 0; c < COLS; c++) {
         if (c + 1 < COLS) {
-          swap({ r: r, c: c }, { r: r, c: c + 1 });
-          var m1 = findMatches();
-          swap({ r: r, c: c }, { r: r, c: c + 1 });
-          if (m1.length > 0) return [{ r: r, c: c }, { r: r, c: c + 1 }];
+          if (!lockedGems[r][c] && !lockedGems[r][c + 1]) {
+            swap({ r: r, c: c }, { r: r, c: c + 1 });
+            var m1 = findMatches();
+            swap({ r: r, c: c }, { r: r, c: c + 1 });
+            if (m1.length > 0) return [{ r: r, c: c }, { r: r, c: c + 1 }];
+          }
         }
         if (r + 1 < ROWS) {
-          swap({ r: r, c: c }, { r: r + 1, c: c });
-          var m2 = findMatches();
-          swap({ r: r, c: c }, { r: r + 1, c: c });
-          if (m2.length > 0) return [{ r: r, c: c }, { r: r + 1, c: c }];
+          if (!lockedGems[r][c] && !lockedGems[r + 1][c]) {
+            swap({ r: r, c: c }, { r: r + 1, c: c });
+            var m2 = findMatches();
+            swap({ r: r, c: c }, { r: r + 1, c: c });
+            if (m2.length > 0) return [{ r: r, c: c }, { r: r + 1, c: c }];
+          }
         }
       }
     }
@@ -516,8 +622,11 @@ const Match3 = (function () {
     do {
       for (var r = 0; r < ROWS; r++) {
         for (var c = 0; c < COLS; c++) {
+          if (lockedGems[r][c]) continue;
           var r2 = Math.floor(Math.random() * ROWS);
           var c2 = Math.floor(Math.random() * COLS);
+          if (lockedGems[r2][c2]) continue;
+
           var tmp = grid[r][c];
           grid[r][c] = grid[r2][c2];
           grid[r2][c2] = tmp;
@@ -532,12 +641,15 @@ const Match3 = (function () {
     if (!hasValidMoves()) {
       for (var r3 = 0; r3 < ROWS; r3++) {
         for (var c3 = 0; c3 < COLS; c3++) {
-          grid[r3][c3] = -1;
-          specialGems[r3][c3] = GEM_NORMAL;
+          if (!lockedGems[r3][c3]) {
+            grid[r3][c3] = -1;
+            specialGems[r3][c3] = GEM_NORMAL;
+          }
         }
       }
       for (var r4 = 0; r4 < ROWS; r4++) {
         for (var c4 = 0; c4 < COLS; c4++) {
+          if (lockedGems[r4][c4]) continue;
           var t;
           do { t = Math.floor(Math.random() * numColors); }
           while (wouldMatch(r4, c4, t));
@@ -867,10 +979,16 @@ const Match3 = (function () {
           ctx.scale(pulse, pulse);
           drawGem(-GEM / 2, -GEM / 2, GEM, grid[r][c], 1);
           drawSpecialOverlay(-GEM / 2, -GEM / 2, sp, grid[r][c]);
+          if (lockedGems[r][c]) {
+            drawLockedOverlay(-GEM / 2, -GEM / 2);
+          }
         } else {
           drawGem(sx, sy, GEM, grid[r][c], 1);
           if (sp !== GEM_NORMAL) {
             drawSpecialOverlay(sx, sy, sp, grid[r][c]);
+          }
+          if (lockedGems[r][c]) {
+            drawLockedOverlay(sx, sy);
           }
         }
         ctx.restore();
@@ -985,10 +1103,52 @@ const Match3 = (function () {
       ctx.shadowColor = '#FFFFFF';
       ctx.shadowBlur = 8;
       ctx.beginPath();
-      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
     }
+  }
+
+  function drawLockedOverlay(x, y) {
+    var cx = x + GEM / 2;
+    var cy = y + GEM / 2;
+    
+    ctx.save();
+    
+    ctx.strokeStyle = 'rgba(176, 190, 197, 0.85)';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.moveTo(x + 5, y + 5);
+    ctx.lineTo(cx, cy);
+    ctx.moveTo(x + GEM - 5, y + 5);
+    ctx.lineTo(cx, cy);
+    ctx.moveTo(x + 5, y + GEM - 5);
+    ctx.lineTo(cx, cy);
+    ctx.moveTo(x + GEM - 5, y + GEM - 5);
+    ctx.lineTo(cx, cy);
+    ctx.stroke();
+    
+    ctx.fillStyle = '#78909C';
+    ctx.strokeStyle = '#37474F';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(cx - 7, cy - 4, 14, 11, 2);
+    ctx.fill();
+    ctx.stroke();
+    
+    ctx.strokeStyle = '#546E7A';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 4, 4.5, Math.PI, 0);
+    ctx.stroke();
+    
+    ctx.fillStyle = '#263238';
+    ctx.beginPath();
+    ctx.arc(cx, cy + 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
   }
 
   function drawSwapAnimation() {
@@ -1497,6 +1657,12 @@ const Match3 = (function () {
       return;
     }
 
+    if (lockedGems[cell.r][cell.c]) {
+      Sound.invalid();
+      selected = null;
+      return;
+    }
+
     pointerCell = cell;
     swipeStart = { x: p.x, y: p.y, cell: cell };
     selected = cell;
@@ -1541,6 +1707,12 @@ const Match3 = (function () {
         }
         var target = { r: selected.r + dirR, c: selected.c + dirC };
         if (target.r >= 0 && target.r < ROWS && target.c >= 0 && target.c < COLS) {
+          if (lockedGems[target.r][target.c] || lockedGems[selected.r][selected.c]) {
+            Sound.invalid();
+            selected = null;
+            swipeStart = null;
+            return;
+          }
           var a = { r: selected.r, c: selected.c };
           swap(a, target);
           beginSwap(a, target);
@@ -1554,6 +1726,13 @@ const Match3 = (function () {
           var a2 = { r: swipeStart.cell.r, c: swipeStart.cell.c };
           var b2 = { r: selected.r, c: selected.c };
           if (a2.r !== b2.r || a2.c !== b2.c) {
+            if (lockedGems[a2.r][a2.c] || lockedGems[b2.r][b2.c]) {
+              Sound.invalid();
+              selected = null;
+              swipeStart = null;
+              pointerCell = null;
+              return;
+            }
             swap(a2, b2);
             beginSwap(a2, b2);
             swipeStart = null;
@@ -1621,6 +1800,7 @@ const Match3 = (function () {
     update: update,
     render: render,
     getScore: getScore,
-    setHighScore: setHighScore
+    setHighScore: setHighScore,
+    isFeverActive: function () { return feverActive; }
   };
 })();

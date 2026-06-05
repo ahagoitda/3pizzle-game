@@ -35,6 +35,10 @@ var Game = (function () {
     // Load world images
     worldImages.world1 = new Image();
     worldImages.world1.src = 'assets/world1_forest.png';
+    worldImages.world2 = new Image();
+    worldImages.world2.src = 'assets/world2_cave.png';
+    worldImages.world3 = new Image();
+    worldImages.world3.src = 'assets/world3_volcano.png';
 
     loadScores();
     loadDifficulty();
@@ -177,15 +181,15 @@ var Game = (function () {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = titleGrad;
-    ctx.fillText('🌸 Anipang Stage Mode', cx, ch * 0.04 + 24);
+    ctx.fillText('🌸 Match-3 Stage Mode', cx, ch * 0.04 + 24);
 
     var unlockedLvlId = Match3Levels.getUnlockedLevel();
     var unlockedIdx = Match3Levels.getLevelIndex(unlockedLvlId);
 
     // 1. World 1 Card
-    var w1Y = 96;
+    var w1Y = 90;
     var cardW = cw - 60;
-    var cardH = 92;
+    var cardH = 80;
     
     var cardGrad = ctx.createLinearGradient(30, w1Y, 30 + cardW, w1Y + cardH);
     cardGrad.addColorStop(0, 'rgba(46, 213, 115, 0.08)');
@@ -238,13 +242,13 @@ var Game = (function () {
     ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
     ctx.fillStyle = '#FF6B81';
     ctx.textAlign = 'left';
-    ctx.fillText('🌸 World 1: Sweet Forest', 42, w1Y + 18);
+    ctx.fillText('🌸 World 1: Sweet Forest', 42, w1Y + 16);
 
     var circleW = 34;
     var circleGap = 16;
     var totalW = 5 * circleW + 4 * circleGap;
     var startX = cx - totalW / 2;
-    var cy1 = w1Y + 56;
+    var cy1 = w1Y + 48;
 
     for (var i = 0; i < 5; i++) {
       var lvl = Match3Levels.levels[i];
@@ -285,7 +289,7 @@ var Game = (function () {
     }
 
     // 2. World 2 Card
-    var w2Y = w1Y + cardH + 16;
+    var w2Y = w1Y + cardH + 14;
     
     var cardGrad2 = ctx.createLinearGradient(30, w2Y, 30 + cardW, w2Y + cardH);
     cardGrad2.addColorStop(0, 'rgba(0, 188, 212, 0.08)');
@@ -318,42 +322,42 @@ var Game = (function () {
       ctx.drawImage(img, dx, dy, dw, dh);
       ctx.globalAlpha = 1.0;
     } else {
-      ctx.fillStyle = 'rgba(0, 188, 212, 0.05)';
-      ctx.beginPath();
-      ctx.moveTo(30 + cardW * 0.4, w2Y);
-      ctx.lineTo(30 + cardW * 0.45, w2Y + 24);
-      ctx.lineTo(30 + cardW * 0.5, w2Y);
-      ctx.fill();
-
-      ctx.fillStyle = 'rgba(103, 58, 183, 0.06)';
-      ctx.beginPath();
-      ctx.moveTo(30 + cardW * 0.7, w2Y + cardH);
-      ctx.lineTo(30 + cardW * 0.76, w2Y + cardH - 30);
-      ctx.lineTo(30 + cardW * 0.82, w2Y + cardH);
-      ctx.fill();
-
-      ctx.fillStyle = 'rgba(0, 188, 212, 0.3)';
-      ctx.shadowColor = '#00CBD4';
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      var cx_c = 30 + cardW - 35;
-      var cy_c = w2Y + 22;
-      ctx.moveTo(cx_c, cy_c - 10);
-      ctx.lineTo(cx_c + 6, cy_c);
-      ctx.lineTo(cx_c, cy_c + 10);
-      ctx.lineTo(cx_c - 6, cy_c);
-      ctx.closePath();
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      // Procedural fallback for World 2: Glowing cyan/purple crystals
+      var gradFallback2 = ctx.createLinearGradient(30, w2Y, 30 + cardW, w2Y + cardH);
+      gradFallback2.addColorStop(0, '#091526');
+      gradFallback2.addColorStop(0.5, '#0c2b3e');
+      gradFallback2.addColorStop(1, '#1e0c2f');
+      ctx.fillStyle = gradFallback2;
+      ctx.fillRect(30, w2Y, cardW, cardH);
+      
+      // Draw glowing crystal shapes
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      for (var k = 0; k < 3; k++) {
+        var crystX = 30 + cardW * (0.2 + k * 0.3) + Math.sin(menuPulse * 0.5 + k) * 15;
+        var crystY = w2Y + cardH * 0.5 + Math.cos(menuPulse * 0.5 + k) * 5;
+        ctx.fillStyle = k === 1 ? '#A855F7' : '#00CBD4';
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.moveTo(crystX, crystY - 18);
+        ctx.lineTo(crystX + 8, crystY - 4);
+        ctx.lineTo(crystX + 5, crystY + 12);
+        ctx.lineTo(crystX - 5, crystY + 12);
+        ctx.lineTo(crystX - 8, crystY - 4);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
     }
     ctx.restore();
     
     ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
     ctx.fillStyle = '#00CBD4';
     ctx.textAlign = 'left';
-    ctx.fillText('💎 World 2: Neon Cave', 42, w2Y + 18);
+    ctx.fillText('💎 World 2: Neon Cave', 42, w2Y + 16);
 
-    var cy2 = w2Y + 56;
+    var cy2 = w2Y + 48;
     for (var i = 0; i < 5; i++) {
       var lvlIdx = i + 5;
       var lvl = Match3Levels.levels[lvlIdx];
@@ -393,7 +397,114 @@ var Game = (function () {
       ctx.fillText(isUnlocked ? lvl.id : '🔒', cx_node, cy2);
     }
 
-    var diffCY = w2Y + 92 + 16;
+    // 3. World 3 Card
+    var w3Y = w2Y + cardH + 14;
+    
+    var cardGrad3 = ctx.createLinearGradient(30, w3Y, 30 + cardW, w3Y + cardH);
+    cardGrad3.addColorStop(0, 'rgba(244, 67, 54, 0.08)');
+    cardGrad3.addColorStop(0.5, 'rgba(255, 87, 34, 0.04)');
+    cardGrad3.addColorStop(1, 'rgba(191, 54, 12, 0.1)');
+    drawRoundRect(30, w3Y, cardW, cardH, 16, cardGrad3, 'rgba(244, 67, 54, 0.15)', 1.2);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(30, w3Y, cardW, cardH, 16);
+    ctx.clip();
+
+    if (worldImages.world3 && worldImages.world3.complete && worldImages.world3.naturalWidth !== 0) {
+      var img = worldImages.world3;
+      var imgRatio = img.width / img.height;
+      var cardRatio = cardW / cardH;
+      var dw, dh, dx, dy;
+      if (imgRatio > cardRatio) {
+        dh = cardH;
+        dw = cardH * imgRatio;
+        dx = 30 + (cardW - dw) / 2;
+        dy = w3Y;
+      } else {
+        dw = cardW;
+        dh = cardW / imgRatio;
+        dx = 30;
+        dy = w3Y + (cardH - dh) / 2;
+      }
+      ctx.globalAlpha = 0.45;
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.globalAlpha = 1.0;
+    } else {
+      // Procedural fallback for World 3: Bubbling volcanic lava
+      var gradFallback3 = ctx.createLinearGradient(30, w3Y, 30 + cardW, w3Y + cardH);
+      gradFallback3.addColorStop(0, '#1c0707');
+      gradFallback3.addColorStop(0.5, '#3a0d0d');
+      gradFallback3.addColorStop(1, '#120404');
+      ctx.fillStyle = gradFallback3;
+      ctx.fillRect(30, w3Y, cardW, cardH);
+      
+      // Draw bubbling lava circles
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      for (var k = 0; k < 4; k++) {
+        var lavaX = 30 + cardW * (0.15 + k * 0.23) + Math.cos(menuPulse * 0.8 + k) * 8;
+        var lavaY = w3Y + cardH * 0.6 + Math.sin(menuPulse * 0.9 + k) * 4;
+        var lavaR = 12 + 4 * Math.sin(menuPulse * 1.2 + k);
+        var lavaGrad = ctx.createRadialGradient(lavaX, lavaY, 2, lavaX, lavaY, lavaR);
+        lavaGrad.addColorStop(0, '#FFD700');
+        lavaGrad.addColorStop(0.4, '#FF5722');
+        lavaGrad.addColorStop(1, 'rgba(244, 67, 54, 0)');
+        ctx.fillStyle = lavaGrad;
+        ctx.beginPath();
+        ctx.arc(lavaX, lavaY, lavaR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+    
+    ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FF5722';
+    ctx.textAlign = 'left';
+    ctx.fillText('🌋 World 3: Volcanic Core', 42, w3Y + 16);
+
+    var cy3 = w3Y + 48;
+    for (var i = 0; i < 5; i++) {
+      var lvlIdx = i + 10;
+      var lvl = Match3Levels.levels[lvlIdx];
+      var cx_node = startX + i * (circleW + circleGap) + circleW / 2;
+      var isUnlocked = lvlIdx <= unlockedIdx;
+      var isCleared = lvlIdx < unlockedIdx;
+      
+      var isHovered = (mouseX >= cx_node - circleW/2 && mouseX <= cx_node + circleW/2 && mouseY >= cy3 - circleW/2 && mouseY <= cy3 + circleW/2);
+      
+      ctx.save();
+      var nodeBg, nodeStroke, textCol;
+      if (isCleared) {
+        nodeBg = isHovered ? '#FFD700' : 'rgba(255, 215, 0, 0.15)';
+        nodeStroke = '#FFD700';
+        textCol = isHovered ? '#000000' : '#FFD700';
+      } else if (isUnlocked) {
+        var pulse = 0.5 + 0.5 * Math.sin(menuPulse * 6);
+        nodeBg = isHovered ? '#FF5722' : 'rgba(255, 87, 34, 0.25)';
+        nodeStroke = 'rgba(255, 255, 255, ' + (0.6 + 0.4 * pulse) + ')';
+        textCol = '#FFFFFF';
+        if (isHovered) {
+          ctx.shadowColor = '#FF5722';
+          ctx.shadowBlur = 10;
+        }
+      } else {
+        nodeBg = 'rgba(255, 255, 255, 0.02)';
+        nodeStroke = 'rgba(255, 255, 255, 0.08)';
+        textCol = 'rgba(255, 255, 255, 0.2)';
+      }
+      
+      drawRoundRect(cx_node - circleW/2, cy3 - circleW/2, circleW, circleW, circleW/2, nodeBg, nodeStroke, isUnlocked ? 2 : 1);
+      ctx.restore();
+
+      ctx.font = 'bold 11px "Outfit", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = textCol;
+      ctx.fillText(isUnlocked ? lvl.id : '🔒', cx_node, cy3);
+    }
+
+    var diffCY = w3Y + cardH + 16;
     drawDifficultyToggle(cx, diffCY);
 
     var recordsY = diffCY + 32 + 16;
@@ -614,7 +725,7 @@ var Game = (function () {
     var circleGap = 16;
     var totalW = 5 * circleW + 4 * circleGap;
     var startX = cw / 2 - totalW / 2;
-    var cy1 = 96 + 56;
+    var cy1 = 90 + 48;
     var unlockedLvlId = Match3Levels.getUnlockedLevel();
     var unlockedIdx = Match3Levels.getLevelIndex(unlockedLvlId);
 
@@ -635,8 +746,8 @@ var Game = (function () {
     }
 
     // World 2 Level nodes
-    var w2Y = 96 + 92 + 16;
-    var cy2 = w2Y + 56;
+    var w2Y = 90 + 80 + 14;
+    var cy2 = w2Y + 48;
     if (y >= cy2 - 20 && y <= cy2 + 20) {
       for (var i = 0; i < 5; i++) {
         var lvlIdx = i + 5;
@@ -653,8 +764,27 @@ var Game = (function () {
       }
     }
 
+    // World 3 Level nodes
+    var w3Y = w2Y + 80 + 14;
+    var cy3 = w3Y + 48;
+    if (y >= cy3 - 20 && y <= cy3 + 20) {
+      for (var i = 0; i < 5; i++) {
+        var lvlIdx = i + 10;
+        var cx_node = startX + i * (circleW + circleGap) + circleW / 2;
+        if (x >= cx_node - 20 && x <= cx_node + 20) {
+          if (lvlIdx <= unlockedIdx) {
+            Sound.click();
+            switchMode('match3', Match3Levels.levels[lvlIdx].id);
+          } else {
+            Sound.invalid();
+          }
+          return;
+        }
+      }
+    }
+
     // 난이도 토글 클릭 판정
-    var diffCY = w2Y + 92 + 16;
+    var diffCY = w3Y + 80 + 16;
     var diffTopY = diffCY + 4;
     var diffBtnH = 32;
     var totalW_diff = 220;
