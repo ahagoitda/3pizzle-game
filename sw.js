@@ -1,4 +1,4 @@
-var CACHE_NAME = '3pizzle-v1';
+var CACHE_NAME = '3pizzle-v2';
 var CACHE_URLS = [
   './',
   './index.html',
@@ -9,7 +9,25 @@ var CACHE_URLS = [
   './main.js',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './assets/gem_red.png',
+  './assets/gem_green.png',
+  './assets/gem_orange.png',
+  './assets/gem_purple.png',
+  './assets/gem_blue.png',
+  './assets/gem_pink.png',
+  './assets/mahjong_dragon.png',
+  './assets/mahjong_phoenix.png',
+  './assets/mahjong_lotus.png',
+  './assets/mahjong_bamboo.png',
+  './assets/mahjong_panda.png',
+  './assets/mahjong_yin_yang.png',
+  './assets/block_purple.png',
+  './assets/block_blue.png',
+  './assets/block_green.png',
+  './assets/block_orange.png',
+  './assets/block_red.png',
+  './assets/block_pink.png'
 ];
 
 self.addEventListener('install', function (event) {
