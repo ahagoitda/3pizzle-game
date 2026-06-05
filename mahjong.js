@@ -15,6 +15,12 @@ const Mahjong = (function () {
   var highScore;
   var scorePopups;
   var difficulty;
+  var undoStack = [];
+  var mouseX = -1000;
+  var mouseY = -1000;
+  var symbolImages = [];
+  var symbolLoadedCount = 0;
+  var symbolsLoaded = false;
 
   var SHAPE_DRAW = ['circle', 'diamond', 'square', 'triangle', 'star', 'heart'];
   var TYPE_COLORS = ['#FF4757', '#3B82F6', '#10B981', '#F59E0B', '#A855F7', '#F97316', '#EC4899', '#6366F1', '#14B8A6'];
@@ -28,8 +34,41 @@ const Mahjong = (function () {
     shapeNames = SHAPE_DRAW;
     shapeColors = TYPE_COLORS;
 
+    preloadImages();
+
     resetGame();
     bindInput();
+  }
+
+  function preloadImages() {
+    if (symbolsLoaded) return;
+    symbolImages = [];
+    symbolLoadedCount = 0;
+    var paths = [
+      'assets/mahjong_dragon.png',
+      'assets/mahjong_phoenix.png',
+      'assets/mahjong_lotus.png',
+      'assets/mahjong_bamboo.png',
+      'assets/mahjong_panda.png',
+      'assets/mahjong_yin_yang.png'
+    ];
+    for (var i = 0; i < 6; i++) {
+      var img = new Image();
+      img.src = paths[i];
+      img.onload = function() {
+        symbolLoadedCount++;
+        if (symbolLoadedCount === 6) {
+          symbolsLoaded = true;
+        }
+      };
+      img.onerror = function() {
+        symbolLoadedCount++;
+        if (symbolLoadedCount === 6) {
+          symbolsLoaded = true;
+        }
+      };
+      symbolImages.push(img);
+    }
   }
 
   function resetGame() {
@@ -47,6 +86,7 @@ const Mahjong = (function () {
     connectionTimer = 0;
     noMovesNotified = false;
     scorePopups = [];
+    undoStack = [];
     Effects.reset();
   }
 
@@ -83,7 +123,7 @@ const Mahjong = (function () {
     }
 
     boardX = Math.floor((canvas.width - (maxC * (TILE_W + GAP) - GAP)) / 2);
-    boardY = 80;
+    boardY = 96;
   }
 
   function getTilePos(tile) {
@@ -288,6 +328,7 @@ const Mahjong = (function () {
     a.removed = true;
     b.removed = true;
     pairsLeft--;
+    undoStack.push({ idxA: idxA, idxB: idxB });
 
     var pa = getTilePos(a), pb = getTilePos(b);
     Effects.emit(pa.x + TILE_W / 2, pa.y + TILE_H / 2, 10, '#FFD700', {
@@ -320,6 +361,34 @@ const Mahjong = (function () {
     } else {
       checkStalemate();
     }
+  }
+
+  function undo() {
+    if (undoStack.length === 0) {
+      Sound.invalid();
+      return;
+    }
+    var last = undoStack.pop();
+    tiles[last.idxA].removed = false;
+    tiles[last.idxB].removed = false;
+    pairsLeft++;
+    score = Math.max(0, score - 20);
+    selectedIdx = -1;
+    hintPair = null;
+    Sound.undo();
+
+    var pa = getTilePos(tiles[last.idxA]), pb = getTilePos(tiles[last.idxB]);
+    Effects.emit(pa.x + TILE_W / 2, pa.y + TILE_H / 2, 6, 'rgba(103, 58, 183, 0.6)', { speedMin: 30, speedMax: 80 });
+    Effects.emit(pb.x + TILE_W / 2, pb.y + TILE_H / 2, 6, 'rgba(103, 58, 183, 0.6)', { speedMin: 30, speedMax: 80 });
+
+    scorePopups.push({
+      x: (pa.x + pb.x) / 2 + TILE_W / 2,
+      y: (pa.y + pb.y) / 2 + TILE_H / 2,
+      text: '-20',
+      life: 0.8,
+      maxLife: 0.8,
+      color: '#FF3D00'
+    });
   }
 
   function checkStalemate() {
@@ -391,7 +460,7 @@ const Mahjong = (function () {
     if (gameState === 'won') {
       var cx = canvas.width / 2;
       var cy = canvas.height / 2;
-      var btnW = 200, btnH = 46, btnY = cy + 25;
+      var btnW = 200, btnH = 44, btnY = cy + 46;
       var btn2Y = btnY + btnH + 12;
       if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
         if (p.y >= btnY && p.y <= btnY + btnH) {
@@ -405,14 +474,30 @@ const Mahjong = (function () {
       }
       return;
     }
-    if (p.y < 60 && p.x < 60) { onBack(); return; }
-    if (animRemoving) return;
-
-    if (p.y < 60) {
-      if (p.x > canvas.width - 80) { resetGame(); return; }
-      if (p.x > canvas.width - 160) { showHint(); return; }
+    if (p.y < 76) {
+      if (p.x < 80) { onBack(); return; }
+      
+      var cw = canvas.width;
+      // Hint
+      if (p.x >= cw - 210 && p.x <= cw - 150 && p.y >= 26 && p.y <= 66) {
+        showHint();
+        Sound.click();
+        return;
+      }
+      // Undo
+      if (p.x >= cw - 140 && p.x <= cw - 90 && p.y >= 26 && p.y <= 66) {
+        undo();
+        return;
+      }
+      // Reset
+      if (p.x >= cw - 80 && p.x <= cw - 10 && p.y >= 26 && p.y <= 66) {
+        resetGame();
+        Sound.click();
+        return;
+      }
       return;
     }
+    if (animRemoving) return;
 
     var idx = findTileByPos(p.x, p.y);
     if (idx < 0) { selectedIdx = -1; hintPair = null; return; }
@@ -443,14 +528,39 @@ const Mahjong = (function () {
     }
   }
 
+  function onMouseMove(e) {
+    var p = handlePointer(e);
+    mouseX = p.x;
+    mouseY = p.y;
+  }
+
+  function onMouseLeave() {
+    mouseX = -1000;
+    mouseY = -1000;
+  }
+
+  function onTouchMove(e) {
+    if (e.touches.length > 0) {
+      var p = handlePointer(e.touches[0]);
+      mouseX = p.x;
+      mouseY = p.y;
+    }
+  }
+
   function bindInput() {
     canvas.addEventListener('mousedown', onDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseleave', onMouseLeave);
     canvas.addEventListener('touchstart', onDown, { passive: false });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
   }
 
   function unbindInput() {
     canvas.removeEventListener('mousedown', onDown);
+    canvas.removeEventListener('mousemove', onMouseMove);
+    canvas.removeEventListener('mouseleave', onMouseLeave);
     canvas.removeEventListener('touchstart', onDown);
+    canvas.removeEventListener('touchmove', onTouchMove);
   }
 
   function update(dt) {
@@ -491,7 +601,7 @@ const Mahjong = (function () {
         var shuffleAlpha = 1 - elapsed / 2;
         ctx.save();
         ctx.globalAlpha = shuffleAlpha;
-        ctx.font = 'bold 16px "Segoe UI", sans-serif';
+        ctx.font = 'bold 16px "Outfit", "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
@@ -508,34 +618,68 @@ const Mahjong = (function () {
   }
 
   function drawHeader() {
-    ctx.fillStyle = 'rgba(243, 229, 245, 0.92)';
-    ctx.fillRect(0, 0, canvas.width, 60);
+    ctx.fillStyle = 'rgba(15, 12, 26, 0.85)';
+    ctx.fillRect(0, 0, canvas.width, 76);
 
-    ctx.strokeStyle = 'rgba(206, 147, 216, 0.3)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(103, 58, 183, 0.25)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(0, 60);
-    ctx.lineTo(canvas.width, 60);
+    ctx.moveTo(0, 76);
+    ctx.lineTo(canvas.width, 76);
     ctx.stroke();
 
-    ctx.font = 'bold 16px "Segoe UI", sans-serif';
+    var isBackHovered = (mouseX >= 10 && mouseX <= 75 && mouseY >= 10 && mouseY <= 50);
+    ctx.font = 'bold 15px "Outfit", "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#AB47BC';
-    ctx.fillText('\u2B50 ' + score, 16, 22);
+    ctx.fillStyle = isBackHovered ? '#FFFFFF' : '#90A4AE';
+    ctx.fillText('\u2190 Back', 16, 28);
 
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#5C6BC0';
-    ctx.fillText('Pairs: ' + pairsLeft, canvas.width - 16, 22);
-
-    ctx.font = '11px "Segoe UI", sans-serif';
+    ctx.font = 'bold 20px "Outfit", "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#AB47BC';
-    ctx.fillText('\u2190 Back', 16, 44);
+    ctx.fillText('\u2B50 ' + score, 16, 54);
 
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#FF9800';
-    ctx.fillText('Hint\u2728  Reset\u21BA', canvas.width - 16, 44);
+    ctx.fillStyle = '#60A5FA';
+    ctx.font = 'bold 15px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillText('Pairs: ' + pairsLeft, canvas.width - 16, 20);
+
+    var cw = canvas.width;
+    var isHintH = (mouseX >= cw - 210 && mouseX <= cw - 150 && mouseY >= 34 && mouseY <= 64);
+    var isUndoH = (mouseX >= cw - 140 && mouseX <= cw - 90 && mouseY >= 34 && mouseY <= 64);
+    var isResetH = (mouseX >= cw - 80 && mouseX <= cw - 10 && mouseY >= 34 && mouseY <= 64);
+
+    ctx.font = '12px "Outfit", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    
+    ctx.fillStyle = isHintH ? '#FFFFFF' : '#FF9800';
+    ctx.fillText('Hint\u2728', cw - 180, 48);
+
+    ctx.fillStyle = isUndoH ? '#FFFFFF' : (undoStack.length > 0 ? '#E91E63' : '#607D8B');
+    ctx.fillText('Undo\u21A9', cw - 115, 48);
+
+    ctx.fillStyle = isResetH ? '#FFFFFF' : '#00E676';
+    ctx.fillText('Reset\u21BA', cw - 45, 48);
+
+    var barX = 110;
+    var barY = 52;
+    var barW = cw - 340;
+    if (barW > 60) {
+      var progress = Math.max(0, pairsLeft / 36);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, barW, 6, 3);
+      ctx.fill();
+
+      var barGrad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+      barGrad.addColorStop(0, '#AB47BC');
+      barGrad.addColorStop(1, '#60A5FA');
+      ctx.fillStyle = barGrad;
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, barW * progress, 6, 3);
+      ctx.fill();
+    }
   }
 
   function drawAllTiles() {
@@ -550,21 +694,43 @@ const Mahjong = (function () {
     var p = getTilePos(tile);
     var x = p.x, y = p.y;
 
-    if (highlighted) {
-      ctx.shadowColor = '#FFD700';
+    var isSelected = (selectedIdx >= 0 && tiles[selectedIdx] === tile);
+    var isHinted = false;
+    if (hintPair) {
+      isHinted = (tiles[hintPair[0]] === tile || tiles[hintPair[1]] === tile);
+    }
+    
+    var dy = (isSelected || isHinted) ? -5 : 0;
+    
+    ctx.save();
+    ctx.translate(0, dy);
+
+    if (isSelected) {
+      ctx.shadowColor = 'rgba(233, 30, 99, 0.4)';
       ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 5;
+    } else if (isHinted) {
+      ctx.shadowColor = 'rgba(0, 230, 118, 0.4)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 5;
     } else {
-      ctx.shadowColor = 'rgba(0,0,0,0.35)';
-      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 5;
       ctx.shadowOffsetX = 1;
-      ctx.shadowOffsetY = 2;
+      ctx.shadowOffsetY = 3;
     }
 
-    var bgGrad = ctx.createLinearGradient(x, y, x + TILE_W, y + TILE_H);
+    var bgGrad = ctx.createLinearGradient(x, y, x, y + TILE_H);
     bgGrad.addColorStop(0, '#FFFEF5');
-    bgGrad.addColorStop(0.15, '#F5F0E0');
-    bgGrad.addColorStop(0.85, '#E8E0C8');
-    bgGrad.addColorStop(1, '#D5CCB0');
+    bgGrad.addColorStop(0.25, '#F9F4E5');
+    bgGrad.addColorStop(0.85, '#EAE1C8');
+    bgGrad.addColorStop(1, '#D8CFB3');
+    
+    ctx.fillStyle = '#B4A680';
+    ctx.beginPath();
+    ctx.roundRect(x, y + 2, TILE_W, TILE_H, 6);
+    ctx.fill();
+
     ctx.fillStyle = bgGrad;
     ctx.beginPath();
     ctx.roundRect(x, y, TILE_W, TILE_H, 5);
@@ -575,22 +741,57 @@ const Mahjong = (function () {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    ctx.strokeStyle = '#C4B896';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.roundRect(x + 1, y + 1, TILE_W - 2, TILE_H - 2, 4);
+    ctx.roundRect(x + 1, y + 1, TILE_W - 2, TILE_H - 2, 4.5);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#C2B591';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x, y, TILE_W, TILE_H, 5);
     ctx.stroke();
 
     var innerX = x + 4, innerY = y + 4, innerW = TILE_W - 8, innerH = TILE_H - 8;
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.beginPath();
     ctx.roundRect(innerX, innerY, innerW, innerH, 3);
     ctx.fill();
 
     drawTileSymbol(innerX, innerY, innerW, innerH, tile.typeIdx);
+    ctx.restore();
   }
 
   function drawTileSymbol(x, y, w, h, typeIdx) {
+    var shapeIdx = typeIdx % 6;
+    var colorIdx = Math.floor(typeIdx / 6) % shapeColors.length;
+    var color = shapeColors[colorIdx];
+    var cx = x + w / 2, cy = y + h / 2;
+    var sz = Math.min(w, h) * 0.35;
+
+    if (symbolsLoaded && symbolImages[shapeIdx] && symbolImages[shapeIdx].complete && symbolImages[shapeIdx].naturalWidth !== 0) {
+      ctx.save();
+      // Draw subtle circular backplate
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.15;
+      ctx.beginPath();
+      ctx.arc(cx, cy, sz * 1.1, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw a colored ring outline
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw the symbol in the center
+      var imgSize = sz * 1.5;
+      ctx.drawImage(symbolImages[shapeIdx], cx - imgSize / 2, cy - imgSize / 2, imgSize, imgSize);
+      return;
+    }
+
     var shapeName = shapeNames[typeIdx % shapeNames.length];
     var color = shapeColors[Math.floor(typeIdx / shapeNames.length) % shapeColors.length];
     var cx = x + w / 2, cy = y + h / 2;
@@ -662,33 +863,7 @@ const Mahjong = (function () {
   }
 
   function drawSelectionHighlight() {
-    if (hintPair) {
-      for (var i = 0; i < hintPair.length; i++) {
-        var t = tiles[hintPair[i]];
-        var p = getTilePos(t);
-        ctx.strokeStyle = '#00FF88';
-        ctx.lineWidth = 2.5;
-        ctx.shadowColor = '#00FF88';
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.roundRect(p.x - 2, p.y - 2, TILE_W + 4, TILE_H + 4, 6);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
-    }
-
-    if (selectedIdx >= 0 && !tiles[selectedIdx].removed) {
-      var st = tiles[selectedIdx];
-      var sp = getTilePos(st);
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = '#FFFFFF';
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.roundRect(sp.x - 2, sp.y - 2, TILE_W + 4, TILE_H + 4, 6);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-    }
+    return;
   }
 
   function drawConnectionPath() {
@@ -698,8 +873,12 @@ const Mahjong = (function () {
     ctx.globalAlpha = alpha;
     ctx.strokeStyle = '#FFD700';
     ctx.lineWidth = 3;
+    
+    ctx.setLineDash([8, 5]);
+    ctx.lineDashOffset = -Math.floor(Date.now() / 25) % 100;
+    
     ctx.shadowColor = '#FFD700';
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.moveTo(connectionPath[0].x, connectionPath[0].y);
     for (var i = 1; i < connectionPath.length; i++) {
@@ -707,76 +886,87 @@ const Mahjong = (function () {
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.setLineDash([]);
 
     for (var j = 0; j < connectionPath.length; j++) {
       ctx.fillStyle = '#FFD700';
+      ctx.shadowColor = '#FFD700';
+      ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.arc(connectionPath[j].x, connectionPath[j].y, 4, 0, Math.PI * 2);
+      ctx.arc(connectionPath[j].x, connectionPath[j].y, 4.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
     }
     ctx.restore();
   }
 
   function drawWinScreen() {
-    ctx.fillStyle = 'rgba(243, 229, 245, 0.85)';
+    ctx.fillStyle = 'rgba(10, 8, 20, 0.9)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     var cx = canvas.width / 2;
     var cy = canvas.height / 2;
     var alpha = Math.min(1, congratsTime);
+    ctx.save();
     ctx.globalAlpha = alpha;
 
-    ctx.save();
-    ctx.shadowColor = 'rgba(156, 39, 176, 0.2)';
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.roundRect(cx - 130, cy - 130, 260, 290, 20);
-    ctx.fill();
+    var animatedScore = Math.min(score, Math.floor(score * (congratsTime / 1.5)));
+
+    ctx.shadowColor = 'rgba(171, 71, 188, 0.25)';
+    ctx.shadowBlur = 30;
+    drawRoundRect(cx - 140, cy - 140, 280, 280, 24, 'rgba(25, 18, 48, 0.85)', 'rgba(255, 255, 255, 0.08)', 1.5);
     ctx.restore();
 
-    ctx.strokeStyle = '#CE93D8';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(cx - 130, cy - 130, 260, 290, 20);
-    ctx.stroke();
-
-    ctx.font = 'bold 36px "Segoe UI", sans-serif';
+    ctx.font = 'bold 30px "Outfit", "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#AB47BC';
-    ctx.fillText('\u{1F3C6} Clear!', cx, cy - 80);
+    ctx.fillText('\u{1F3C6} Clear!', cx, cy - 84);
 
-    ctx.font = 'bold 22px "Segoe UI", sans-serif';
-    ctx.fillStyle = '#424242';
-    ctx.fillText('\u2B50 ' + score, cx, cy - 35);
+    ctx.font = 'bold 36px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u2B50 ' + animatedScore, cx, cy - 30);
 
     if (highScore !== undefined && highScore !== null) {
-      ctx.font = '16px "Segoe UI", sans-serif';
-      ctx.fillStyle = score >= highScore ? '#FF9800' : '#9E9E9E';
-      ctx.fillText(score >= highScore ? '\u{1F3C6} New Record!' : 'Best: ' + highScore, cx, cy);
+      ctx.font = '15px "Outfit", "Segoe UI", sans-serif';
+      if (score >= highScore && score > 0) {
+        var hue = (Date.now() / 10) % 360;
+        ctx.fillStyle = 'hsl(' + hue + ', 100%, 65%)';
+        ctx.fillText('\u{1F3C6} New Record!', cx, cy + 15);
+      } else {
+        ctx.fillStyle = '#90A4AE';
+        ctx.fillText('Best: ' + highScore, cx, cy + 15);
+      }
     }
 
-    var btnW = 200, btnH = 46, btnY = cy + 25;
+    var btnW = 200, btnH = 44, btnY = cy + 46;
+    var btn2Y = btnY + btnH + 12;
 
+    var isRetryHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btnY && mouseY <= btnY + btnH);
     ctx.save();
-    ctx.shadowColor = 'rgba(156, 39, 176, 0.3)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetY = 2;
-    ctx.fillStyle = '#AB47BC';
-    ctx.beginPath();
-    ctx.roundRect(cx - btnW / 2, btnY, btnW, btnH, 12);
-    ctx.fill();
+    if (isRetryHovered) {
+      ctx.shadowColor = 'rgba(171, 71, 188, 0.4)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 2;
+    }
+    var retryBg = isRetryHovered ? '#BE5EDC' : '#AB47BC';
+    var retryBorder = isRetryHovered ? '#FFFFFF' : '#8E24AA';
+    drawRoundRect(cx - btnW / 2, btnY, btnW, btnH, 12, retryBg, retryBorder, 1.5);
     ctx.restore();
-    ctx.font = 'bold 18px "Segoe UI", sans-serif';
+    ctx.font = 'bold 16px "Outfit", "Segoe UI", sans-serif';
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText('\u25B6 Retry', cx, btnY + btnH / 2);
 
-    var btn2Y = btnY + btnH + 12;
-    ctx.fillStyle = '#78909C';
-    ctx.beginPath();
-    ctx.roundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12);
-    ctx.fill();
+    var isMenuHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btn2Y && mouseY <= btn2Y + btnH);
+    ctx.save();
+    if (isMenuHovered) {
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.1)';
+      ctx.shadowBlur = 12;
+    }
+    var menuBg = isMenuHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+    var menuBorder = isMenuHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)';
+    drawRoundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12, menuBg, menuBorder, 1.5);
+    ctx.restore();
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
 
@@ -789,7 +979,7 @@ const Mahjong = (function () {
       var alpha2 = Math.max(0, sp.life / sp.maxLife);
       ctx.save();
       ctx.globalAlpha = alpha2;
-      ctx.font = 'bold 16px "Segoe UI", sans-serif';
+      ctx.font = 'bold 16px "Outfit", "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor = sp.color;

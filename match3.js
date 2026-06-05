@@ -16,6 +16,11 @@ const Match3 = (function () {
   var highScore;
   var difficulty;
   var maxTime;
+  var mouseX = -1000;
+  var mouseY = -1000;
+  var gemImages = [];
+  var gemLoadedCount = 0;
+  var gemsLoaded = false;
 
   var GEM_NORMAL = 0;
   var GEM_LINE_H = 1;
@@ -42,8 +47,35 @@ const Match3 = (function () {
       { main: '#EC4899', light: '#F472B6', dark: '#9D174D' }
     ];
 
+    preloadImages();
+
     resetGame();
     bindInput();
+  }
+
+  function preloadImages() {
+    if (gemsLoaded) return;
+    gemImages = [];
+    gemLoadedCount = 0;
+    var paths = [
+      'assets/gem_red.png',
+      'assets/gem_green.png',
+      'assets/gem_orange.png',
+      'assets/gem_purple.png',
+      'assets/gem_blue.png',
+      'assets/gem_pink.png'
+    ];
+    for (var i = 0; i < 6; i++) {
+      var img = new Image();
+      img.src = paths[i];
+      img.onload = function() {
+        gemLoadedCount++;
+        if (gemLoadedCount === 6) {
+          gemsLoaded = true;
+        }
+      };
+      gemImages.push(img);
+    }
   }
 
   function resetGame() {
@@ -563,9 +595,6 @@ const Match3 = (function () {
     drawBoard();
     drawTimerAndScore();
 
-    if (animState === 'swap' || animState === 'swapback') {
-      // swap animation is handled in drawBoard
-    }
     if (animState === 'remove') {
       drawRemovalAnimation();
     }
@@ -573,6 +602,20 @@ const Match3 = (function () {
     Effects.render(ctx);
 
     drawScorePopups();
+
+    // 10초 이하 붉은 위네트 효과 (긴박감 부여)
+    if (timeLeft > 0 && timeLeft <= 10 && animState !== 'gameover') {
+      var pulse = 0.3 + 0.25 * Math.sin(Date.now() / 150);
+      var grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.width * 0.4, canvas.width / 2, canvas.height / 2, canvas.width * 0.85);
+      grad.addColorStop(0, 'rgba(229, 57, 53, 0)');
+      grad.addColorStop(1, 'rgba(229, 57, 53, ' + (pulse * 0.5) + ')');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.strokeStyle = 'rgba(229, 57, 53, ' + pulse + ')';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+    }
 
     if (animState === 'gameover') {
       drawGameOver();
@@ -582,6 +625,23 @@ const Match3 = (function () {
   }
 
   function drawBoard() {
+    // 둥근 사각형 보드 판넬 (약간의 투명도를 가진 다크 블루/퍼플)
+    ctx.save();
+    ctx.shadowColor = 'rgba(103, 58, 183, 0.2)';
+    ctx.shadowBlur = 20;
+    drawRoundRect(GRID_X - 12, GRID_Y - 12, BOARD_W + 24, BOARD_H + 24, 18, 'rgba(21, 16, 42, 0.65)', 'rgba(103, 58, 183, 0.35)', 2);
+    ctx.restore();
+
+    // 격자 배경 셀 음영 처리
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var sx = GRID_X + c * (GEM + GAP);
+        var sy = GRID_Y + r * (GEM + GAP);
+        var cellColor = ((r + c) % 2 === 0) ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.04)';
+        drawRoundRect(sx, sy, GEM, GEM, 10, cellColor, 'rgba(255, 255, 255, 0.02)', 1);
+      }
+    }
+
     for (var r = 0; r < ROWS; r++) {
       for (var c = 0; c < COLS; c++) {
         var skip = false;
@@ -621,12 +681,22 @@ const Match3 = (function () {
           }
         }
 
-        drawGem(sx, sy, GEM, grid[r][c], 1);
-
         var sp = specialGems[r][c];
-        if (sp !== GEM_NORMAL) {
-          drawSpecialOverlay(sx, sy, sp, grid[r][c]);
+
+        ctx.save();
+        if (sp === GEM_BOMB) {
+          var pulse = 1 + 0.06 * Math.sin(Date.now() / 150);
+          ctx.translate(sx + GEM / 2, sy + GEM / 2);
+          ctx.scale(pulse, pulse);
+          drawGem(-GEM / 2, -GEM / 2, GEM, grid[r][c], 1);
+          drawSpecialOverlay(-GEM / 2, -GEM / 2, sp, grid[r][c]);
+        } else {
+          drawGem(sx, sy, GEM, grid[r][c], 1);
+          if (sp !== GEM_NORMAL) {
+            drawSpecialOverlay(sx, sy, sp, grid[r][c]);
+          }
         }
+        ctx.restore();
       }
     }
 
@@ -639,7 +709,7 @@ const Match3 = (function () {
         ctx.shadowColor = '#FFD700';
         ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.roundRect(hc.x - GEM / 2, hc.y - GEM / 2, GEM, GEM, 8);
+        ctx.roundRect(hc.x - GEM / 2, hc.y - GEM / 2, GEM, GEM, 10);
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
@@ -652,7 +722,7 @@ const Match3 = (function () {
       ctx.shadowColor = '#FFFFFF';
       ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.roundRect(sc.x - GEM / 2, sc.y - GEM / 2, GEM, GEM, 8);
+      ctx.roundRect(sc.x - GEM / 2, sc.y - GEM / 2, GEM, GEM, 10);
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
@@ -661,47 +731,61 @@ const Match3 = (function () {
   function drawSpecialOverlay(x, y, spType, gemType) {
     var cx = x + GEM / 2;
     var cy = y + GEM / 2;
+    var time = Date.now() / 1000;
 
     if (spType === GEM_LINE_H) {
+      var animOffset = (time * 25) % 12;
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 3;
       ctx.shadowColor = '#FFFFFF';
       ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.moveTo(cx - 12, cy);
-      ctx.lineTo(cx + 12, cy);
-      var ax = cx + 8;
-      ctx.moveTo(ax, cy - 5);
-      ctx.lineTo(ax + 5, cy);
-      ctx.lineTo(ax, cy + 5);
-      ctx.moveTo(cx - 8 - 5, cy - 5);
-      ctx.lineTo(cx - 8 - 5, cy + 5);
-      ctx.lineTo(cx - 8, cy);
+      ctx.moveTo(cx - 14, cy);
+      ctx.lineTo(cx + 14, cy);
+      
+      var rx = cx + 6 + animOffset;
+      ctx.moveTo(rx - 4, cy - 4);
+      ctx.lineTo(rx, cy);
+      ctx.lineTo(rx - 4, cy + 4);
+      
+      var lx = cx - 6 - animOffset;
+      ctx.moveTo(lx + 4, cy - 4);
+      ctx.lineTo(lx, cy);
+      ctx.lineTo(lx + 4, cy + 4);
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else if (spType === GEM_LINE_V) {
+      var animOffset = (time * 25) % 12;
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 3;
       ctx.shadowColor = '#FFFFFF';
       ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.moveTo(cx, cy - 12);
-      ctx.lineTo(cx, cy + 12);
-      ctx.moveTo(cx - 5, cy - 8);
-      ctx.lineTo(cx, cy - 8 - 5);
-      ctx.lineTo(cx + 5, cy - 8);
+      ctx.moveTo(cx, cy - 14);
+      ctx.lineTo(cx, cy + 14);
+      
+      var dy = cy + 6 + animOffset;
+      ctx.moveTo(cx - 4, dy - 4);
+      ctx.lineTo(cx, dy);
+      ctx.lineTo(cx + 4, dy - 4);
+      
+      var uy = cy - 6 - animOffset;
+      ctx.moveTo(cx - 4, uy + 4);
+      ctx.lineTo(cx, uy);
+      ctx.lineTo(cx + 4, uy + 4);
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else if (spType === GEM_BOMB) {
       ctx.fillStyle = '#FFFFFF';
-      ctx.shadowColor = '#FFFFFF';
-      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#FF9800';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
+
+      ctx.strokeStyle = '#FF3D00';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(cx - 4, cy - 4);
       ctx.lineTo(cx + 4, cy + 4);
@@ -710,18 +794,21 @@ const Match3 = (function () {
       ctx.stroke();
     } else if (spType === GEM_RAINBOW) {
       var colors = ['#FF4757', '#FFA502', '#2ED573', '#3B82F6', '#A855F7', '#EC4899'];
+      var angleShift = time * 3;
       for (var i = 0; i < 6; i++) {
-        var a2 = (i / 6) * Math.PI * 2 - Math.PI / 2;
+        var a2 = (i / 6) * Math.PI * 2 + angleShift;
         ctx.fillStyle = colors[i];
+        ctx.shadowColor = colors[i];
+        ctx.shadowBlur = 4;
         ctx.beginPath();
-        ctx.arc(cx + Math.cos(a2) * 10, cy + Math.sin(a2) * 10, 4, 0, Math.PI * 2);
+        ctx.arc(cx + Math.cos(a2) * 11, cy + Math.sin(a2) * 11, 4.5, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.fillStyle = '#FFFFFF';
       ctx.shadowColor = '#FFFFFF';
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 8;
       ctx.beginPath();
-      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
     }
@@ -756,7 +843,7 @@ const Match3 = (function () {
       var alpha = Math.max(0, sp.life / sp.maxLife);
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.font = 'bold 20px "Segoe UI", sans-serif';
+      ctx.font = 'bold 20px "Outfit", "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor = sp.color;
@@ -770,6 +857,10 @@ const Match3 = (function () {
 
   var gemCache = {};
   function drawGem(x, y, size, type, alpha) {
+    if (gemsLoaded && gemImages[type] && gemImages[type].complete && gemImages[type].naturalWidth !== 0) {
+      ctx.drawImage(gemImages[type], x, y, size, size);
+      return;
+    }
     var key = type + '_' + size;
     if (!gemCache[key]) {
       var off = document.createElement('canvas');
@@ -818,136 +909,152 @@ const Match3 = (function () {
     ctx.drawImage(gemCache[key], x - 2, y - 2);
   }
 
-function drawTimerAndScore() {
-    ctx.fillStyle = 'rgba(243, 229, 245, 0.92)';
-    ctx.fillRect(0, 0, canvas.width, 85);
+  function drawTimerAndScore() {
+    ctx.fillStyle = 'rgba(15, 12, 26, 0.85)';
+    ctx.fillRect(0, 0, canvas.width, 92);
 
-    ctx.strokeStyle = 'rgba(206, 147, 216, 0.3)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(103, 58, 183, 0.25)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(0, 85);
-    ctx.lineTo(canvas.width, 85);
+    ctx.moveTo(0, 92);
+    ctx.lineTo(canvas.width, 92);
     ctx.stroke();
 
-    ctx.font = 'bold 20px "Segoe UI", sans-serif';
+    var isBackHovered = (mouseX >= 10 && mouseX <= 80 && mouseY >= 10 && mouseY <= 45);
+    ctx.font = 'bold 14px "Outfit", "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#AD1457';
-    ctx.fillText('\u2728 ' + score, 16, 30);
+    ctx.fillStyle = isBackHovered ? '#FFFFFF' : '#90A4AE';
+    ctx.fillText('\u2190 Back', 16, 28);
+
+    ctx.font = 'bold 22px "Outfit", "Segoe UI", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FF6B81';
+    ctx.fillText('\u2728 ' + score, 16, 58);
 
     ctx.textAlign = 'right';
-    var tColor = timeLeft <= 10 ? '#E53935' : '#5C6BC0';
+    var isUrgent = timeLeft <= 10;
+    var tColor = isUrgent ? (Math.floor(Date.now() / 250) % 2 === 0 ? '#FF3D00' : '#FF8A80') : '#60A5FA';
     ctx.fillStyle = tColor;
-    ctx.font = 'bold 20px "Segoe UI", sans-serif';
-    ctx.fillText(Math.ceil(timeLeft) + 's', canvas.width - 16, 30);
+    ctx.font = 'bold 22px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillText(Math.ceil(timeLeft) + 's', canvas.width - 16, 58);
 
     var barX = 16;
-    var barY = 50;
+    var barY = 78;
     var barW = canvas.width - 32;
-    var barH = 12;
+    var barH = 8;
     var progress = Math.max(0, timeLeft / maxTime);
 
-    ctx.fillStyle = '#E8EAF6';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.beginPath();
-    ctx.roundRect(barX, barY, barW, barH, 6);
+    ctx.roundRect(barX, barY, barW, barH, 4);
     ctx.fill();
 
     var barColor;
-    if (progress > 0.5) barColor = '#66BB6A';
-    else if (progress > 0.25) barColor = '#FFA726';
-    else barColor = '#EF5350';
+    if (progress > 0.5) barColor = '#4CAF50';
+    else if (progress > 0.25) barColor = '#FF9800';
+    else barColor = '#F44336';
 
-    if (progress > 0.01) {
+    if (progress > 0.001) {
+      var alpha = 1;
+      if (isUrgent) {
+        alpha = 0.5 + 0.5 * Math.sin(Date.now() / 100);
+      }
+      ctx.save();
+      ctx.globalAlpha = alpha;
       var barGrad = ctx.createLinearGradient(barX, barY, barX + barW * progress, barY);
       barGrad.addColorStop(0, barColor);
-      barGrad.addColorStop(1, barColor + 'CC');
+      barGrad.addColorStop(1, barColor + 'AA');
       ctx.fillStyle = barGrad;
       ctx.beginPath();
-      ctx.roundRect(barX, barY, barW * progress, barH, 6);
-      ctx.fill();
-
-      ctx.save();
-      ctx.shadowColor = barColor;
-      ctx.shadowBlur = 8;
-      ctx.fillStyle = 'transparent';
-      ctx.beginPath();
-      ctx.roundRect(barX, barY, barW * progress, barH, 6);
+      ctx.roundRect(barX, barY, barW * progress, barH, 4);
       ctx.fill();
       ctx.restore();
     }
 
     if (combo > 1 && (animState === 'remove' || animState === 'fall')) {
-      ctx.font = 'bold 16px "Segoe UI", sans-serif';
+      ctx.save();
+      var comboScale = 1 + 0.15 * Math.sin(Date.now() / 80);
+      ctx.translate(canvas.width / 2, 40);
+      ctx.scale(comboScale, comboScale);
+      ctx.font = 'bold 20px "Outfit", "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#FF6B81';
-      ctx.fillText('\u2B50 COMBO x' + combo + '!', canvas.width / 2, 75);
+      ctx.fillStyle = '#FFD700';
+      ctx.shadowColor = '#FFA500';
+      ctx.shadowBlur = 10;
+      ctx.fillText('\u2B50 ' + combo + ' COMBO!', 0, 0);
+      ctx.restore();
     }
-
-    ctx.font = '12px "Segoe UI", sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#AB47BC';
-    ctx.fillText('\u2190 Back', 16, 76);
   }
 
   function drawGameOver() {
-    ctx.fillStyle = 'rgba(243, 229, 245, 0.85)';
+    ctx.fillStyle = 'rgba(10, 8, 20, 0.9)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     var cx = canvas.width / 2;
     var cy = canvas.height / 2;
 
+    var animatedScore = Math.min(score, Math.floor(score * (gameOverTime / 1.5)));
+
     ctx.save();
-    ctx.shadowColor = 'rgba(156, 39, 176, 0.2)';
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.roundRect(cx - 130, cy - 130, 260, 280, 20);
-    ctx.fill();
+    ctx.shadowColor = 'rgba(233, 30, 99, 0.25)';
+    ctx.shadowBlur = 30;
+    drawRoundRect(cx - 140, cy - 140, 280, 280, 24, 'rgba(25, 18, 48, 0.85)', 'rgba(255, 255, 255, 0.08)', 1.5);
     ctx.restore();
 
-    ctx.strokeStyle = '#CE93D8';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(cx - 130, cy - 130, 260, 280, 20);
-    ctx.stroke();
-
-    ctx.font = 'bold 32px "Segoe UI", sans-serif';
+    ctx.font = 'bold 30px "Outfit", "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#E91E63';
-    ctx.fillText("\u23F0 Time's Up!", cx, cy - 80);
+    ctx.fillStyle = '#FF6B81';
+    ctx.fillText("\u23F0 Time's Up!", cx, cy - 84);
 
-    ctx.font = 'bold 24px "Segoe UI", sans-serif';
-    ctx.fillStyle = '#424242';
-    ctx.fillText('\u2B50 ' + score, cx, cy - 35);
+    ctx.font = 'bold 36px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u2728 ' + animatedScore, cx, cy - 30);
 
     if (highScore !== undefined && highScore !== null) {
-      ctx.font = '16px "Segoe UI", sans-serif';
-      ctx.fillStyle = score >= highScore ? '#FF9800' : '#9E9E9E';
-      ctx.fillText(score >= highScore ? '\u{1F3C6} New Record!' : 'Best: ' + highScore, cx, cy);
+      ctx.font = '15px "Outfit", "Segoe UI", sans-serif';
+      if (score >= highScore && score > 0) {
+        var hue = (Date.now() / 10) % 360;
+        ctx.fillStyle = 'hsl(' + hue + ', 100%, 65%)';
+        ctx.fillText('\u{1F3C6} New Record!', cx, cy + 15);
+      } else {
+        ctx.fillStyle = '#90A4AE';
+        ctx.fillText('Best: ' + highScore, cx, cy + 15);
+      }
     }
 
-    var btnW = 200, btnH = 46, btnY = cy + 25;
+    var btnW = 200, btnH = 44, btnY = cy + 46;
+    var btn2Y = btnY + btnH + 12;
+
+    var isRetryHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btnY && mouseY <= btnY + btnH);
     ctx.save();
-    ctx.shadowColor = 'rgba(233, 30, 99, 0.3)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetY = 2;
-    ctx.fillStyle = '#E91E63';
-    ctx.beginPath();
-    ctx.roundRect(cx - btnW / 2, btnY, btnW, btnH, 12);
-    ctx.fill();
+    if (isRetryHovered) {
+      ctx.shadowColor = 'rgba(233, 30, 99, 0.4)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 2;
+    }
+    var retryBg = isRetryHovered ? '#FF8597' : '#FF6B81';
+    var retryBorder = isRetryHovered ? '#FFFFFF' : '#E91E63';
+    drawRoundRect(cx - btnW / 2, btnY, btnW, btnH, 12, retryBg, retryBorder, 1.5);
     ctx.restore();
-    ctx.font = 'bold 18px "Segoe UI", sans-serif';
+    ctx.font = 'bold 16px "Outfit", "Segoe UI", sans-serif';
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText('\u25B6 Retry', cx, btnY + btnH / 2);
 
-    var btn2Y = btnY + btnH + 12;
-    ctx.fillStyle = '#78909C';
-    ctx.beginPath();
-    ctx.roundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12);
-    ctx.fill();
+    var isMenuHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btn2Y && mouseY <= btn2Y + btnH);
+    ctx.save();
+    if (isMenuHovered) {
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.1)';
+      ctx.shadowBlur = 12;
+    }
+    var menuBg = isMenuHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+    var menuBorder = isMenuHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)';
+    drawRoundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12, menuBg, menuBorder, 1.5);
+    ctx.restore();
     ctx.fillStyle = '#FFFFFF';
-ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
+    ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
   }
 
   function handlePointer(e) {
@@ -964,7 +1071,7 @@ ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
     if (animState === 'gameover') {
       var cx = canvas.width / 2;
       var cy = canvas.height / 2;
-      var btnW = 200, btnH = 46, btnY = cy + 25;
+      var btnW = 200, btnH = 44, btnY = cy + 46;
       var btn2Y = btnY + btnH + 12;
       if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
         if (p.y >= btnY && p.y <= btnY + btnH) {
@@ -978,8 +1085,8 @@ ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
       }
       return;
     }
-    if (p.y < 85) {
-      if (p.x < 60) { onBack(); return; }
+    if (p.y < 92) {
+      if (p.x < 80) { onBack(); return; }
       return;
     }
     if (animState !== 'idle') return;
@@ -1041,15 +1148,23 @@ ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
   }
 
   function onMove(e) {
-    if (!pointerDown || !selected) return;
     var p = handlePointer(e.touches ? e.touches[0] : e);
+    mouseX = p.x;
+    mouseY = p.y;
+    if (!pointerDown || !selected) return;
     pointerCell = getCell(p.x, p.y);
+  }
+
+  function onMouseLeave() {
+    mouseX = -1000;
+    mouseY = -1000;
   }
 
   function bindInput() {
     canvas.addEventListener('mousedown', onDown);
     canvas.addEventListener('mouseup', onUp);
     canvas.addEventListener('mousemove', onMove);
+    canvas.addEventListener('mouseleave', onMouseLeave);
     canvas.addEventListener('touchstart', onDown, { passive: false });
     canvas.addEventListener('touchend', onUp);
     canvas.addEventListener('touchmove', onMove, { passive: false });
@@ -1059,6 +1174,7 @@ ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
     canvas.removeEventListener('mousedown', onDown);
     canvas.removeEventListener('mouseup', onUp);
     canvas.removeEventListener('mousemove', onMove);
+    canvas.removeEventListener('mouseleave', onMouseLeave);
     canvas.removeEventListener('touchstart', onDown);
     canvas.removeEventListener('touchend', onUp);
     canvas.removeEventListener('touchmove', onMove);
