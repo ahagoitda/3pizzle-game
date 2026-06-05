@@ -68,8 +68,6 @@ var Game = (function () {
     menuPulse += dt;
 
     if (mode === 'match3') Match3.update(dt);
-    else if (mode === 'block') BlockPuzzle.update(dt);
-    else if (mode === 'mahjong') Mahjong.update(dt);
   }
 
   function render() {
@@ -81,12 +79,6 @@ var Game = (function () {
     } else if (mode === 'match3') {
       drawGameBg();
       Match3.render();
-    } else if (mode === 'block') {
-      drawGameBg();
-      BlockPuzzle.render();
-    } else if (mode === 'mahjong') {
-      drawGameBg();
-      Mahjong.render();
     }
   }
 
@@ -404,15 +396,11 @@ var Game = (function () {
     var diffCY = w2Y + 92 + 16;
     drawDifficultyToggle(cx, diffCY);
 
-    var miniY = diffCY + 54;
-    var miniYStart = miniY + 12;
-    drawMiniGames(cx, miniYStart);
-
-    var recordsY = miniYStart + 68 + 16;
+    var recordsY = diffCY + 32 + 16;
     drawScores(cx, recordsY);
 
     if (deferredPrompt && !installDismissed) {
-      var instY = recordsY + 106;
+      var instY = recordsY + 76 + 16;
       drawInstallBanner(cx, instY);
     }
   }
@@ -467,63 +455,9 @@ var Game = (function () {
     }
   }
 
-  function drawMiniGames(cx, cy) {
-    var cw = canvas.width;
-    var cardW = (cw - 80) / 2;
-    var cardH = 68;
-
-    // Block Puzzle Card (Left)
-    var bx = 30;
-    var by = cy;
-    var bHovered = (mouseX >= bx && mouseX <= bx + cardW && mouseY >= by && mouseY <= by + cardH);
-    ctx.save();
-    if (bHovered) {
-      ctx.shadowColor = 'rgba(66, 165, 245, 0.4)';
-      ctx.shadowBlur = 12;
-    }
-    var bGrad = ctx.createLinearGradient(bx, by, bx + cardW, by + cardH);
-    bGrad.addColorStop(0, 'rgba(66, 165, 245, 0.12)');
-    bGrad.addColorStop(1, 'rgba(66, 165, 245, 0.04)');
-    drawRoundRect(bx, by, cardW, cardH, 12, bGrad, bHovered ? 'rgba(66, 165, 245, 0.4)' : 'rgba(66, 165, 245, 0.15)', 1.2);
-    ctx.restore();
-
-    ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
-    ctx.fillStyle = '#42A5F5';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🧩 Block Puzzle', bx + cardW / 2, by + cardH / 2 - 8);
-    ctx.font = '10px "Outfit", sans-serif';
-    ctx.fillStyle = '#90A4AE';
-    ctx.fillText('Classic Strategy', bx + cardW / 2, by + cardH / 2 + 12);
-
-    // Mahjong Solitaire Card (Right)
-    var mx = cw / 2 + 10;
-    var my = cy;
-    var mHovered = (mouseX >= mx && mouseX <= mx + cardW && mouseY >= my && mouseY <= my + cardH);
-    ctx.save();
-    if (mHovered) {
-      ctx.shadowColor = 'rgba(171, 71, 188, 0.4)';
-      ctx.shadowBlur = 12;
-    }
-    var mGrad = ctx.createLinearGradient(mx, my, mx + cardW, my + cardH);
-    mGrad.addColorStop(0, 'rgba(171, 71, 188, 0.12)');
-    mGrad.addColorStop(1, 'rgba(171, 71, 188, 0.04)');
-    drawRoundRect(mx, my, cardW, cardH, 12, mGrad, mHovered ? 'rgba(171, 71, 188, 0.4)' : 'rgba(171, 71, 188, 0.15)', 1.2);
-    ctx.restore();
-
-    ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
-    ctx.fillStyle = '#AB47BC';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🀄 Mahjong Solitaire', mx + cardW / 2, my + cardH / 2 - 8);
-    ctx.font = '10px "Outfit", sans-serif';
-    ctx.fillStyle = '#90A4AE';
-    ctx.fillText('Zen Tile Match', mx + cardW / 2, my + cardH / 2 + 12);
-  }
-
   function drawScores(cx, cy) {
     var pw = canvas.width - 60;
-    var ph = 88;
+    var ph = 76;
     
     ctx.save();
     ctx.shadowColor = 'rgba(255, 255, 255, 0.05)';
@@ -535,30 +469,11 @@ var Game = (function () {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#FF6B81';
-    ctx.fillText('\u2B50 BEST RECORDS', cx, cy + 8);
+    ctx.fillText('\u2B50 BEST MATCH-3 RECORD', cx, cy + 10);
 
-    var modesInfo = [
-      { label: 'Match-3', score: highScores.match3 || 0, icon: '\u{1F48E}', color: '#FF6B81' },
-      { label: 'Block', score: highScores.block || 0, icon: '\u{1F9E9}', color: '#42A5F5' },
-      { label: 'Mahjong', score: highScores.mahjong || 0, icon: '\u{1F004}', color: '#AB47BC' }
-    ];
-
-    var itemW = pw / 3;
-    var startX = cx - pw / 2;
-
-    for (var i = 0; i < 3; i++) {
-      var info = modesInfo[i];
-      var itemX = startX + i * itemW + itemW / 2;
-      
-      ctx.font = '11px "Outfit", "Segoe UI", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#90A4AE';
-      ctx.fillText(info.icon + ' ' + info.label, itemX, cy + 32);
-
-      ctx.font = 'bold 15px "Outfit", "Segoe UI", sans-serif';
-      ctx.fillStyle = info.color;
-      ctx.fillText(info.score, itemX, cy + 52);
-    }
+    ctx.font = 'bold 20px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u{1F48E} ' + (highScores.match3 || 0), cx, cy + 38);
 
     ctx.font = '12px "Outfit", "Segoe UI", sans-serif';
     ctx.fillStyle = '#607D8B';
@@ -606,8 +521,6 @@ var Game = (function () {
 
     var prevScore = 0;
     if (mode === 'match3') { prevScore = Match3.getScore(); Match3.destroy(); }
-    else if (mode === 'block') { prevScore = BlockPuzzle.getScore(); BlockPuzzle.destroy(); }
-    else if (mode === 'mahjong') { prevScore = Mahjong.getScore(); Mahjong.destroy(); }
 
     saveScore(mode, prevScore);
 
@@ -619,8 +532,6 @@ var Game = (function () {
       Match3.setHighScore(highScores.match3 || 0); 
       incrementPlayCount(); 
     }
-    else if (mode === 'block') { BlockPuzzle.init(canvas, ctx, goToMenu, difficulty); BlockPuzzle.setHighScore(highScores.block || 0); incrementPlayCount(); }
-    else if (mode === 'mahjong') { Mahjong.init(canvas, ctx, goToMenu, difficulty); Mahjong.setHighScore(highScores.mahjong || 0); incrementPlayCount(); }
 
     startCalled[mode] = true;
   }
@@ -628,8 +539,6 @@ var Game = (function () {
   function goToMenu() {
     var prevScore = 0;
     if (mode === 'match3') { prevScore = Match3.getScore(); Match3.destroy(); }
-    else if (mode === 'block') { prevScore = BlockPuzzle.getScore(); BlockPuzzle.destroy(); }
-    else if (mode === 'mahjong') { prevScore = Mahjong.getScore(); Mahjong.destroy(); }
 
     saveScore(mode, prevScore);
     mode = 'menu';
@@ -763,28 +672,10 @@ var Game = (function () {
       }
     }
 
-    // 미니 게임 클릭 판정
-    var miniY = diffCY + 54;
-    var miniYStart = miniY + 12;
-    var miniCardW = (cw - 80) / 2;
-    var miniCardH = 68;
-    if (y >= miniYStart && y <= miniYStart + miniCardH) {
-      if (x >= 30 && x <= 30 + miniCardW) {
-        Sound.click();
-        switchMode('block');
-        return;
-      }
-      if (x >= cw / 2 + 10 && x <= cw / 2 + 10 + miniCardW) {
-        Sound.click();
-        switchMode('mahjong');
-        return;
-      }
-    }
-
     // 설치 배너 클릭 판정
-    var recordsY = miniYStart + miniCardH + 16;
+    var recordsY = diffCY + 32 + 16;
     if (deferredPrompt && !installDismissed) {
-      var instY = recordsY + 106;
+      var instY = recordsY + 76 + 16;
       var instW = cw - 60;
       var instH = 44;
       if (x >= 30 && x <= 30 + instW && y >= instY && y <= instY + instH) {
@@ -857,9 +748,11 @@ var Game = (function () {
 
   window.addEventListener('resize', function () {
     setupCanvas();
-    if (mode === 'match3') { Match3.destroy(); Match3.init(canvas, ctx, goToMenu, difficulty); Match3.setHighScore(highScores.match3 || 0); }
-    else if (mode === 'block') { BlockPuzzle.destroy(); BlockPuzzle.init(canvas, ctx, goToMenu, difficulty); BlockPuzzle.setHighScore(highScores.block || 0); }
-    else if (mode === 'mahjong') { Mahjong.destroy(); Mahjong.init(canvas, ctx, goToMenu, difficulty); Mahjong.setHighScore(highScores.mahjong || 0); }
+    if (mode === 'match3') {
+      Match3.destroy();
+      Match3.init(canvas, ctx, goToMenu, difficulty, selectedLevelId);
+      Match3.setHighScore(highScores.match3 || 0);
+    }
   });
 
   init();

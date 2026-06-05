@@ -1,12 +1,10 @@
-var CACHE_NAME = '3pizzle-v7';
+var CACHE_NAME = '3pizzle-v8';
 var CACHE_URLS = [
   './',
   './index.html',
   './effects.js',
   './match3_levels.js',
   './match3.js',
-  './blockpuzzle.js',
-  './mahjong.js',
   './main.js',
   './manifest.json',
   './icon-192.png',
@@ -17,18 +15,6 @@ var CACHE_URLS = [
   './assets/gem_purple.png',
   './assets/gem_blue.png',
   './assets/gem_pink.png',
-  './assets/mahjong_dragon.png',
-  './assets/mahjong_phoenix.png',
-  './assets/mahjong_lotus.png',
-  './assets/mahjong_bamboo.png',
-  './assets/mahjong_panda.png',
-  './assets/mahjong_yin_yang.png',
-  './assets/block_purple.png',
-  './assets/block_blue.png',
-  './assets/block_green.png',
-  './assets/block_orange.png',
-  './assets/block_red.png',
-  './assets/block_pink.png',
   './assets/world1_forest.png'
 ];
 
