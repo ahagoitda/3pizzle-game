@@ -220,6 +220,92 @@ const Match3 = (function () {
         lockedGems[5][3] = true;
         lockedGems[5][4] = true;
       }
+    } else if (world === 4) {
+      if (lvlNum === 1) {
+        lockedGems[1][1] = true;
+        lockedGems[2][2] = true;
+        lockedGems[5][5] = true;
+        lockedGems[6][6] = true;
+      } else if (lvlNum === 2) {
+        lockedGems[3][2] = true;
+        lockedGems[3][5] = true;
+        lockedGems[4][2] = true;
+        lockedGems[4][5] = true;
+      } else if (lvlNum === 3) {
+        lockedGems[2][2] = true;
+        lockedGems[4][2] = true;
+        lockedGems[3][3] = true;
+        lockedGems[3][4] = true;
+        lockedGems[2][5] = true;
+        lockedGems[4][5] = true;
+      } else if (lvlNum === 4) {
+        lockedGems[1][2] = true;
+        lockedGems[1][3] = true;
+        lockedGems[1][4] = true;
+        lockedGems[1][5] = true;
+        lockedGems[6][3] = true;
+        lockedGems[6][4] = true;
+      } else if (lvlNum === 5) {
+        lockedGems[1][3] = true;
+        lockedGems[1][4] = true;
+        lockedGems[3][1] = true;
+        lockedGems[4][1] = true;
+        lockedGems[3][6] = true;
+        lockedGems[4][6] = true;
+        lockedGems[6][3] = true;
+        lockedGems[6][4] = true;
+      }
+    } else if (world === 5) {
+      if (lvlNum === 1) {
+        lockedGems[2][3] = true;
+        lockedGems[2][4] = true;
+        lockedGems[3][1] = true;
+        lockedGems[3][6] = true;
+        lockedGems[4][3] = true;
+        lockedGems[4][4] = true;
+      } else if (lvlNum === 2) {
+        lockedGems[1][1] = true;
+        lockedGems[1][6] = true;
+        lockedGems[3][2] = true;
+        lockedGems[3][5] = true;
+        lockedGems[4][2] = true;
+        lockedGems[4][5] = true;
+        lockedGems[6][1] = true;
+        lockedGems[6][6] = true;
+      } else if (lvlNum === 3) {
+        lockedGems[2][2] = true;
+        lockedGems[3][2] = true;
+        lockedGems[4][2] = true;
+        lockedGems[5][2] = true;
+        lockedGems[2][5] = true;
+        lockedGems[3][5] = true;
+        lockedGems[4][5] = true;
+        lockedGems[5][5] = true;
+      } else if (lvlNum === 4) {
+        lockedGems[1][1] = true;
+        lockedGems[1][3] = true;
+        lockedGems[1][5] = true;
+        lockedGems[3][1] = true;
+        lockedGems[3][6] = true;
+        lockedGems[4][1] = true;
+        lockedGems[4][6] = true;
+        lockedGems[6][1] = true;
+        lockedGems[6][3] = true;
+        lockedGems[6][5] = true;
+      } else if (lvlNum === 5) {
+        lockedGems[1][1] = true;
+        lockedGems[1][3] = true;
+        lockedGems[1][5] = true;
+        lockedGems[2][2] = true;
+        lockedGems[2][4] = true;
+        lockedGems[2][6] = true;
+        lockedGems[4][1] = true;
+        lockedGems[4][3] = true;
+        lockedGems[4][5] = true;
+        lockedGems[5][2] = true;
+        lockedGems[5][4] = true;
+        lockedGems[5][6] = true;
+      }
     }
   }
 

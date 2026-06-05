@@ -21,7 +21,21 @@ var Match3Levels = (function() {
     { id: '3-2', world: 3, target: 22000, time: 55, colors: 5, name: 'Magma Chamber 🔥' },
     { id: '3-3', world: 3, target: 26000, time: 50, colors: 6, name: 'Obsidian Crag 🧱' },
     { id: '3-4', world: 3, target: 30000, time: 45, colors: 6, name: 'Sulfur Spring 💨' },
-    { id: '3-5', world: 3, target: 35000, time: 40, colors: 6, name: 'Volcano Heart 💖' }
+    { id: '3-5', world: 3, target: 35000, time: 40, colors: 6, name: 'Volcano Heart 💖' },
+
+    // World 4: Sky Sanctuary
+    { id: '4-1', world: 4, target: 40000, time: 60, colors: 5, name: 'Windy Zephyr 🌬️' },
+    { id: '4-2', world: 4, target: 45000, time: 55, colors: 5, name: 'Cloud Pathway ☁️' },
+    { id: '4-3', world: 4, target: 50000, time: 50, colors: 6, name: 'Zephyr Palace 🏰' },
+    { id: '4-4', world: 4, target: 56000, time: 45, colors: 6, name: 'Starlight Bridge 🌉' },
+    { id: '4-5', world: 4, target: 65000, time: 40, colors: 6, name: 'Celestial Temple 🏛️' },
+
+    // World 5: Space Odyssey
+    { id: '5-1', world: 5, target: 75000, time: 60, colors: 5, name: 'Stardust Void 🌠' },
+    { id: '5-2', world: 5, target: 85000, time: 55, colors: 6, name: 'Nebula Sector 🌌' },
+    { id: '5-3', world: 5, target: 96000, time: 50, colors: 6, name: 'Quasar Core ☄️' },
+    { id: '5-4', world: 5, target: 110000, time: 45, colors: 6, name: 'Event Horizon 🕳️' },
+    { id: '5-5', world: 5, target: 130000, time: 40, colors: 6, name: 'Infinity Heart 💖' }
   ];
 
   function getUnlockedLevel() {

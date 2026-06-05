@@ -1,4 +1,4 @@
-var CACHE_NAME = '3pizzle-v9';
+var CACHE_NAME = '3pizzle-v10';
 var CACHE_URLS = [
   './',
   './index.html',
@@ -15,7 +15,11 @@ var CACHE_URLS = [
   './assets/gem_purple.png',
   './assets/gem_blue.png',
   './assets/gem_pink.png',
-  './assets/world1_forest.png'
+  './assets/world1_forest.png',
+  './assets/world2_cave.png',
+  './assets/world3_volcano.png',
+  './assets/world4_sky.png',
+  './assets/world5_space.png'
 ];
 
 self.addEventListener('install', function (event) {
