@@ -18,6 +18,23 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   };
 }
 
+// ── drawRoundRect 전역 헬퍼 ─────────────────────────────────────────
+var globalCanvas = null;
+var globalCtx = null;
+window.drawRoundRect = function (x, y, w, h, r, fill, stroke, lw) {
+  if (!globalCtx) {
+    globalCanvas = document.getElementById('gameCanvas');
+    if (globalCanvas) {
+      globalCtx = globalCanvas.getContext('2d');
+    }
+  }
+  if (!globalCtx) return;
+  globalCtx.beginPath();
+  globalCtx.roundRect(x, y, w, h, r);
+  if (fill) { globalCtx.fillStyle = fill; globalCtx.fill(); }
+  if (stroke) { globalCtx.strokeStyle = stroke; globalCtx.lineWidth = lw || 2; globalCtx.stroke(); }
+};
+
 // ── Sound 모듈 ────────────────────────────────────────────────────
 var Sound = (function () {
   'use strict';
