@@ -278,6 +278,40 @@ var canvas, ctx, onBack;
         board[r][c] = boardMask[r][c] ? -1 : -2;
       }
     }
+
+    // Spawn Stone Obstacles in Hard mode
+    if (difficulty === 'hard') {
+      var stoneCount = Math.floor(Math.random() * 2) + 1; // 1 or 2 stones
+      var placedStones = 0;
+      var attempts = 0;
+      while (placedStones < stoneCount && attempts < 100) {
+        var rr = Math.floor(Math.random() * ROWS);
+        var cc = Math.floor(Math.random() * COLS);
+        if (boardMask[rr][cc] && board[rr][cc] === -1) {
+          board[rr][cc] = 10; // 10 represents stone block
+          placedStones++;
+        }
+        attempts++;
+      }
+    }
+
+    // Spawn Ice Obstacles in Normal/Hard mode
+    if (difficulty === 'normal' || difficulty === 'hard') {
+      var iceCount = Math.floor(Math.random() * 3) + 2; // 2 to 4 ice blocks
+      var placedIce = 0;
+      var attempts = 0;
+      while (placedIce < iceCount && attempts < 100) {
+        var rr = Math.floor(Math.random() * ROWS);
+        var cc = Math.floor(Math.random() * COLS);
+        if (boardMask[rr][cc] && board[rr][cc] === -1) {
+          var color = Math.floor(Math.random() * 6);
+          board[rr][cc] = color + 20; // color + 20 represents ice block
+          placedIce++;
+        }
+        attempts++;
+      }
+    }
+
     score = 0;
     selectedBlock = -1;
     gameOver = false;
@@ -506,18 +540,58 @@ var canvas, ctx, onBack;
     clearTimeoutId = setTimeout(function () {
       for (var ri = 0; ri < clearRows.length; ri++) {
         for (var c = 0; c < COLS; c++) {
-          if (boardMask[clearRows[ri]][c]) board[clearRows[ri]][c] = -1;
+          if (boardMask[clearRows[ri]][c]) {
+            if (board[clearRows[ri]][c] >= 20) {
+              board[clearRows[ri]][c] -= 20;
+            } else {
+              board[clearRows[ri]][c] = -1;
+            }
+          }
         }
       }
       for (var ci = 0; ci < clearCols.length; ci++) {
         for (var r = 0; r < ROWS; r++) {
-          if (boardMask[r][clearCols[ci]]) board[r][clearCols[ci]] = -1;
+          if (boardMask[r][clearCols[ci]]) {
+            if (board[r][clearCols[ci]] >= 20) {
+              board[r][clearCols[ci]] -= 20;
+            } else {
+              board[r][clearCols[ci]] = -1;
+            }
+          }
         }
       }
+
+      // Check Perfect Clear!
+      var isPerfect = true;
+      for (var r = 0; r < ROWS; r++) {
+        for (var c = 0; c < COLS; c++) {
+          if (boardMask[r][c] && board[r][c] >= 0) {
+            isPerfect = false;
+            break;
+          }
+        }
+        if (!isPerfect) break;
+      }
+      
+      if (isPerfect) {
+        score += 500;
+        Sound.win();
+        Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FFD700', { speedMin: 80, speedMax: 220, sizeMin: 5, sizeMax: 10 });
+        scorePopups.push({
+          x: canvas.width / 2,
+          y: canvas.height / 2 - 40,
+          text: 'PERFECT CLEAR! +500 ✨',
+          life: 2.0,
+          maxLife: 2.0,
+          color: '#FFD700'
+        });
+      }
+
       animClearing = false;
       clearingRows = [];
       clearingCols = [];
       clearTimeoutId = null;
+      checkGameOver();
     }, 400);
   }
 
@@ -1083,31 +1157,83 @@ var canvas, ctx, onBack;
   }
 
   function drawCell(x, y, size, colorIdx, alpha) {
-    if (blocksLoaded && blockImages[colorIdx] && blockImages[colorIdx].complete && blockImages[colorIdx].naturalWidth !== 0) {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.drawImage(blockImages[colorIdx], x, y, size, size);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    if (colorIdx === 10) {
+      var grad = ctx.createLinearGradient(x, y, x + size, y + size);
+      grad.addColorStop(0, '#90A4AE');
+      grad.addColorStop(0.5, '#607D8B');
+      grad.addColorStop(1, '#37474F');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x, y, size, size, 6);
+      ctx.fill();
+
+      ctx.strokeStyle = '#263238';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + size * 0.25, y + size * 0.2);
+      ctx.lineTo(x + size * 0.4, y + size * 0.55);
+      ctx.lineTo(x + size * 0.75, y + size * 0.75);
+      ctx.stroke();
       ctx.restore();
       return;
     }
 
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    var bc = blockColors[colorIdx];
+    var baseColorIdx = colorIdx;
+    var isIce = false;
+    if (colorIdx >= 20) {
+      baseColorIdx = colorIdx - 20;
+      isIce = true;
+    }
 
-    var grad = ctx.createLinearGradient(x, y, x + size, y + size);
-    grad.addColorStop(0, bc.light);
-    grad.addColorStop(0.5, bc.main);
-    grad.addColorStop(1, bc.dark);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.roundRect(x, y, size, size, 6);
-    ctx.fill();
+    if (blocksLoaded && blockImages[baseColorIdx] && blockImages[baseColorIdx].complete && blockImages[baseColorIdx].naturalWidth !== 0) {
+      ctx.drawImage(blockImages[baseColorIdx], x, y, size, size);
+    } else {
+      var bc = blockColors[baseColorIdx] || blockColors[0];
+      var grad = ctx.createLinearGradient(x, y, x + size, y + size);
+      grad.addColorStop(0, bc.light);
+      grad.addColorStop(0.5, bc.main);
+      grad.addColorStop(1, bc.dark);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x, y, size, size, 6);
+      ctx.fill();
 
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.beginPath();
-    ctx.roundRect(x + 2, y + 2, size - 4, size / 2 - 2, [4, 4, 0, 0]);
-    ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath();
+      ctx.roundRect(x + 2, y + 2, size - 4, size / 2 - 2, [4, 4, 0, 0]);
+      ctx.fill();
+    }
+
+    if (isIce) {
+      var iceGrad = ctx.createLinearGradient(x, y, x + size, y + size);
+      iceGrad.addColorStop(0, 'rgba(224, 247, 250, 0.4)');
+      iceGrad.addColorStop(0.5, 'rgba(128, 222, 234, 0.5)');
+      iceGrad.addColorStop(1, 'rgba(0, 188, 212, 0.6)');
+      ctx.fillStyle = iceGrad;
+      ctx.beginPath();
+      ctx.roundRect(x + 1, y + 1, size - 2, size - 2, 5);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(x + 2, y + 2, size - 4, size - 4, 4);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + size * 0.15, y + size * 0.85);
+      ctx.lineTo(x + size * 0.85, y + size * 0.15);
+      ctx.stroke();
+    }
 
     ctx.restore();
   }

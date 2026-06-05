@@ -35,6 +35,9 @@ var Game = (function () {
     loadPlayCount();
     setupCanvas();
     bindGlobalInput();
+    
+    Sound.startBGM();
+    
     requestAnimationFrame(loop);
   }
 

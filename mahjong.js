@@ -22,6 +22,104 @@ const Mahjong = (function () {
   var symbolLoadedCount = 0;
   var symbolsLoaded = false;
 
+  var currentStage = 0;
+  var menuPulse2 = 0;
+  var lastMatchTime = 0;
+  var speedCombo = 1;
+
+  var layoutsData = [
+    {
+      name: 'Turtle',
+      icon: '🐢',
+      maxR: 5,
+      maxC: 8,
+      tiles: (function() {
+        var coords = [];
+        var layers = [
+          { r: 0, c: 0, rows: 5, cols: 8 },
+          { r: 0, c: 1, rows: 4, cols: 6 },
+          { r: 1, c: 2, rows: 2, cols: 4 }
+        ];
+        for (var lay = 0; lay < layers.length; lay++) {
+          var lo = layers[lay];
+          for (var rr = lo.r; rr < lo.r + lo.rows; rr++) {
+            for (var cc = lo.c; cc < lo.c + lo.cols; cc++) {
+              coords.push({ r: rr, c: cc, layer: lay });
+            }
+          }
+        }
+        return coords;
+      })()
+    },
+    {
+      name: 'Pyramid',
+      icon: '🔺',
+      maxR: 6,
+      maxC: 8,
+      tiles: (function() {
+        var coords = [];
+        var layers = [
+          { r: 0, c: 0, rows: 6, cols: 8 },
+          { r: 1, c: 2, rows: 4, cols: 4 },
+          { r: 2, c: 2, rows: 2, cols: 4 }
+        ];
+        for (var lay = 0; lay < layers.length; lay++) {
+          var lo = layers[lay];
+          for (var rr = lo.r; rr < lo.r + lo.rows; rr++) {
+            for (var cc = lo.c; cc < lo.c + lo.cols; cc++) {
+              coords.push({ r: rr, c: cc, layer: lay });
+            }
+          }
+        }
+        return coords;
+      })()
+    },
+    {
+      name: 'Butterfly',
+      icon: '🦋',
+      maxR: 6,
+      maxC: 8,
+      tiles: (function() {
+        var coords = [];
+        var l0_left = [
+          { r: 0, c: 0 }, { r: 0, c: 1 }, { r: 0, c: 2 }, { r: 0, c: 3 },
+          { r: 1, c: 0 }, { r: 1, c: 1 }, { r: 1, c: 2 },
+          { r: 2, c: 0 }, { r: 2, c: 1 },
+          { r: 3, c: 0 }, { r: 3, c: 1 }, { r: 3, c: 2 },
+          { r: 4, c: 0 }, { r: 4, c: 1 }, { r: 4, c: 2 }, { r: 4, c: 3 },
+          { r: 5, c: 1 }, { r: 5, c: 2 }
+        ];
+        var l1_left = [
+          { r: 0, c: 1 }, { r: 0, c: 2 },
+          { r: 1, c: 1 }, { r: 1, c: 2 }, { r: 1, c: 3 },
+          { r: 2, c: 1 }, { r: 2, c: 2 },
+          { r: 3, c: 1 }, { r: 3, c: 2 },
+          { r: 4, c: 1 }, { r: 4, c: 2 }, { r: 4, c: 3 },
+          { r: 5, c: 2 }
+        ];
+        var l2_left = [
+          { r: 1, c: 2 },
+          { r: 2, c: 2 }, { r: 2, c: 3 },
+          { r: 3, c: 2 }, { r: 3, c: 3 }
+        ];
+
+        function addMirrored(leftArr, lay) {
+          for (var i = 0; i < leftArr.length; i++) {
+            var p = leftArr[i];
+            coords.push({ r: p.r, c: p.c, layer: lay });
+            coords.push({ r: p.r, c: 7 - p.c, layer: lay });
+          }
+        }
+
+        addMirrored(l0_left, 0);
+        addMirrored(l1_left, 1);
+        addMirrored(l2_left, 2);
+
+        return coords;
+      })()
+    }
+  ];
+
   var SHAPE_DRAW = ['circle', 'diamond', 'square', 'triangle', 'star', 'heart'];
   var TYPE_COLORS = ['#FF4757', '#3B82F6', '#10B981', '#F59E0B', '#A855F7', '#F97316', '#EC4899', '#6366F1', '#14B8A6'];
 
@@ -34,9 +132,17 @@ const Mahjong = (function () {
     shapeNames = SHAPE_DRAW;
     shapeColors = TYPE_COLORS;
 
-    preloadImages();
+    if (!gameState) {
+      gameState = 'stageselect';
+      currentStage = 0;
+    } else if (gameState === 'playing') {
+      resetGame();
+    }
+    menuPulse2 = 0;
+    lastMatchTime = 0;
+    speedCombo = 1;
 
-    resetGame();
+    preloadImages();
     bindInput();
   }
 
@@ -87,6 +193,8 @@ const Mahjong = (function () {
     noMovesNotified = false;
     scorePopups = [];
     undoStack = [];
+    lastMatchTime = 0;
+    speedCombo = 1;
     Effects.reset();
   }
 
@@ -100,26 +208,17 @@ const Mahjong = (function () {
       var tmp = typePool[j]; typePool[j] = typePool[k]; typePool[k] = tmp;
     }
 
-    maxR = 5; maxC = 8;
-    var layouts = [
-      { r: 0, c: 0, rows: 5, cols: 8 },   // layer 0
-      { r: 0, c: 1, rows: 4, cols: 6 },   // layer 1
-      { r: 1, c: 2, rows: 2, cols: 4 }    // layer 2
-    ];
+    var ld = layoutsData[currentStage] || layoutsData[0];
+    maxR = ld.maxR;
+    maxC = ld.maxC;
 
-    var idx = 0;
-    for (var lay = 0; lay < layouts.length; lay++) {
-      var lo = layouts[lay];
-      for (var rr = lo.r; rr < lo.r + lo.rows; rr++) {
-        for (var cc = lo.c; cc < lo.c + lo.cols; cc++) {
-          tiles.push({
-            r: rr, c: cc, layer: lay,
-            typeIdx: typePool[idx],
-            removed: false
-          });
-          idx++;
-        }
-      }
+    for (var idx = 0; idx < ld.tiles.length; idx++) {
+      var t = ld.tiles[idx];
+      tiles.push({
+        r: t.r, c: t.c, layer: t.layer,
+        typeIdx: typePool[idx],
+        removed: false
+      });
     }
 
     boardX = Math.floor((canvas.width - (maxC * (TILE_W + GAP) - GAP)) / 2);
@@ -338,16 +437,32 @@ const Mahjong = (function () {
       speedMin: 50, speedMax: 150, sizeMin: 2, sizeMax: 5
     });
 
-    score += 10;
+    // Speed combo logic
+    var now = Date.now();
+    if (lastMatchTime > 0 && now - lastMatchTime <= 3000) {
+      speedCombo = Math.min(4, speedCombo + 1);
+    } else {
+      speedCombo = 1;
+    }
+    lastMatchTime = now;
+
+    var baseScore = 10;
+    var matchScore = baseScore * speedCombo;
+    score += matchScore;
     noMovesNotified = false;
+
+    var popText = '+' + matchScore;
+    if (speedCombo > 1) {
+      popText += ' Combo x' + speedCombo + '! 🔥';
+    }
 
     scorePopups.push({
       x: (pa.x + pb.x) / 2 + TILE_W / 2,
       y: (pa.y + pb.y) / 2 + TILE_H / 2,
-      text: '+10',
-      life: 0.8,
-      maxLife: 0.8,
-      color: '#FFD700'
+      text: popText,
+      life: 1.0,
+      maxLife: 1.0,
+      color: speedCombo > 1 ? '#FF5722' : '#FFD700'
     });
 
     Sound.mahjongMatch();
@@ -375,6 +490,10 @@ const Mahjong = (function () {
     score = Math.max(0, score - 20);
     selectedIdx = -1;
     hintPair = null;
+
+    speedCombo = 1;
+    lastMatchTime = 0;
+
     Sound.undo();
 
     var pa = getTilePos(tiles[last.idxA]), pb = getTilePos(tiles[last.idxB]);
@@ -457,6 +576,14 @@ const Mahjong = (function () {
 
   function onDown(e) {
     var p = handlePointer(e.touches ? e.touches[0] : e);
+    if (gameState === 'stageselect') {
+      if (p.y < 76 && p.x < 80) {
+        onBack();
+        return;
+      }
+      handleStageSelectClick(p);
+      return;
+    }
     if (gameState === 'won') {
       var cx = canvas.width / 2;
       var cy = canvas.height / 2;
@@ -468,14 +595,19 @@ const Mahjong = (function () {
           return;
         }
         if (p.y >= btn2Y && p.y <= btn2Y + btnH) {
-          onBack();
+          gameState = 'stageselect';
+          Sound.click();
           return;
         }
       }
       return;
     }
     if (p.y < 76) {
-      if (p.x < 80) { onBack(); return; }
+      if (p.x < 80) {
+        gameState = 'stageselect';
+        Sound.click();
+        return;
+      }
       
       var cw = canvas.width;
       // Hint
@@ -516,6 +648,26 @@ const Mahjong = (function () {
     } else {
       selectedIdx = idx;
       hintPair = null;
+    }
+  }
+
+  function handleStageSelectClick(p) {
+    var cx = canvas.width / 2;
+    var cardW = 280;
+    var cardH = 110;
+    var startY = 120;
+    var cardGap = 20;
+
+    for (var i = 0; i < layoutsData.length; i++) {
+      var bx = cx - cardW / 2;
+      var by = startY + i * (cardH + cardGap);
+      if (p.x >= bx && p.x <= bx + cardW && p.y >= by && p.y <= by + cardH) {
+        currentStage = i;
+        Sound.click();
+        resetGame();
+        gameState = 'playing';
+        return;
+      }
     }
   }
 
@@ -564,6 +716,11 @@ const Mahjong = (function () {
   }
 
   function update(dt) {
+    if (gameState === 'stageselect') {
+      menuPulse2 += dt;
+      Effects.update(dt);
+      return;
+    }
     if (gameState === 'won') {
       congratsTime += dt;
     }
@@ -583,6 +740,10 @@ const Mahjong = (function () {
   }
 
   function render() {
+    if (gameState === 'stageselect') {
+      renderStageSelect();
+      return;
+    }
     var shake = Effects.getShakeOffset();
     ctx.save();
     ctx.translate(shake.x, shake.y);
@@ -617,6 +778,126 @@ const Mahjong = (function () {
     ctx.restore();
   }
 
+  function renderStageSelect() {
+    var cx = canvas.width / 2;
+
+    var bgGrad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    bgGrad.addColorStop(0, '#0f0c1a');
+    bgGrad.addColorStop(0.5, '#15102a');
+    bgGrad.addColorStop(1, '#1a0e2e');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var colors = [
+      'rgba(171, 71, 188, 0.05)',
+      'rgba(66, 165, 245, 0.05)',
+      'rgba(102, 187, 106, 0.05)'
+    ];
+    for (var b = 0; b < 3; b++) {
+      var bbx = (canvas.width * 0.15) + Math.sin(menuPulse2 * 0.4 + b * 1.5) * canvas.width * 0.25;
+      var bby = (canvas.height * 0.15) + Math.cos(menuPulse2 * 0.25 + b) * canvas.height * 0.35;
+      ctx.save();
+      ctx.fillStyle = colors[b % colors.length];
+      ctx.beginPath();
+      ctx.arc(bbx, bby, 30, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    Effects.render(ctx);
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.05)';
+    ctx.shadowBlur = 12;
+    ctx.font = 'bold 26px "Outfit", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u{1F004} Select Layout', cx, 50);
+    ctx.restore();
+
+    ctx.font = '13px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#90A4AE';
+    ctx.fillText('\u2B50 Best: ' + (highScore || 0), cx, 78);
+
+    var isBackHovered = (mouseX >= 10 && mouseX <= 75 && mouseY >= 10 && mouseY <= 50);
+    ctx.font = 'bold 15px "Outfit", "Segoe UI", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isBackHovered ? '#FFFFFF' : '#90A4AE';
+    ctx.fillText('\u2190 Back', 16, 28);
+
+    var cardW = 280;
+    var cardH = 110;
+    var startY = 120;
+    var cardGap = 20;
+
+    var stageColors = ['#A855F7', '#3B82F6', '#10B981'];
+
+    for (var i = 0; i < layoutsData.length; i++) {
+      var ld = layoutsData[i];
+      var bx = cx - cardW / 2;
+      var by = startY + i * (cardH + cardGap);
+      var stageCol = stageColors[i % stageColors.length];
+
+      var isCardHovered = (mouseX >= bx && mouseX <= bx + cardW && mouseY >= by && mouseY <= by + cardH);
+
+      ctx.save();
+      if (isCardHovered) {
+        ctx.shadowColor = stageCol;
+        ctx.shadowBlur = 14;
+      } else {
+        ctx.shadowColor = 'rgba(0,0,0,0.15)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+      }
+      
+      var bgFill = isCardHovered ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)';
+      drawRoundRect(bx, by, cardW, cardH, 16, bgFill, null);
+      ctx.restore();
+
+      var borderCol = isCardHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.1)';
+      drawRoundRect(bx, by, cardW, cardH, 16, null, borderCol, isCardHovered ? 2 : 1.2);
+
+      ctx.save();
+      ctx.font = '32px "Segoe UI Emoji", "Outfit", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(ld.icon, bx + 20, by + cardH / 2 - 10);
+      ctx.restore();
+
+      ctx.font = 'bold 18px "Outfit", "Segoe UI", sans-serif';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(ld.name, bx + 20, by + cardH / 2 + 25);
+
+      var pW = 8 * 9 - 2;
+      var pH = 6 * 9 - 2;
+      var px = bx + 200;
+      var py = by + cardH / 2;
+      var ox = px - pW / 2;
+      var oy = py - pH / 2;
+
+      ctx.save();
+      var sortedTiles = ld.tiles.slice().sort(function(a,b) { return a.layer - b.layer; });
+      for (var tIdx = 0; tIdx < sortedTiles.length; tIdx++) {
+        var tile = sortedTiles[tIdx];
+        var tileCol;
+        if (tile.layer === 0) tileCol = 'rgba(255, 255, 255, 0.25)';
+        else if (tile.layer === 1) tileCol = 'rgba(171, 71, 188, 0.6)';
+        else tileCol = '#FFD700';
+
+        var tx = ox + tile.c * 9 - tile.layer * 1.5;
+        var ty = oy + tile.r * 9 - tile.layer * 1.5;
+        ctx.fillStyle = tileCol;
+        ctx.fillRect(tx, ty, 7, 7);
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(tx, ty, 7, 7);
+      }
+      ctx.restore();
+    }
+  }
+
   function drawHeader() {
     ctx.fillStyle = 'rgba(15, 12, 26, 0.85)';
     ctx.fillRect(0, 0, canvas.width, 76);
@@ -639,6 +920,21 @@ const Mahjong = (function () {
     ctx.textAlign = 'left';
     ctx.fillStyle = '#AB47BC';
     ctx.fillText('\u2B50 ' + score, 16, 54);
+
+    if (speedCombo > 1 && lastMatchTime > 0 && Date.now() - lastMatchTime <= 3000) {
+      var elapsed = (Date.now() - lastMatchTime) / 3000;
+      var alpha = 1 - elapsed;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
+      ctx.fillStyle = '#FF5722';
+      ctx.shadowColor = '#FF5722';
+      ctx.shadowBlur = 6;
+      var scoreText = '\u2B50 ' + score;
+      var scoreW = ctx.measureText(scoreText).width;
+      ctx.fillText('Combo x' + speedCombo + ' 🔥', 16 + scoreW + 12, 54);
+      ctx.restore();
+    }
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#60A5FA';

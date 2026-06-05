@@ -41,6 +41,22 @@ var Sound = (function () {
 
   var actx = null;
   var enabled = true;
+  var bgmIntervalId = null;
+  var bgmStep = 0;
+
+  var melodyPattern = [
+    261.63, 329.63, 392.00, 523.25, // C chord arpeggio
+    246.94, 293.66, 392.00, 493.88, // G chord arpeggio
+    220.00, 261.63, 329.63, 440.00, // Am chord arpeggio
+    174.61, 220.00, 261.63, 349.23  // F chord arpeggio
+  ];
+
+  var bassPattern = [
+    130.81, 130.81, 130.81, 130.81,
+    98.00,  98.00,  98.00,  98.00,
+    110.00, 110.00, 110.00, 110.00,
+    87.31,  87.31,  87.31,  87.31
+  ];
 
   // localStorage에서 사운드 설정 로드
   try {
@@ -151,10 +167,51 @@ var Sound = (function () {
     try {
       localStorage.setItem('triplePuzzleSound', v ? 'on' : 'off');
     } catch (e) {}
+    if (v) {
+      startBGM();
+    } else {
+      stopBGM();
+    }
   }
 
   function isEnabled() {
     return enabled;
+  }
+
+  function startBGM() {
+    if (!enabled) return;
+    if (bgmIntervalId) return;
+    bgmStep = 0;
+    bgmIntervalId = setInterval(function () {
+      if (!enabled) {
+        stopBGM();
+        return;
+      }
+      var c = getCtx();
+      if (!c) return;
+      resume();
+
+      var melodyFreq = melodyPattern[bgmStep % 16];
+      play(melodyFreq, 0.22, 'sine', 0.025);
+
+      if (bgmStep % 4 === 0) {
+        var bassFreq = bassPattern[bgmStep % 16];
+        play(bassFreq, 0.45, 'triangle', 0.045);
+      }
+
+      if (bgmStep % 2 === 1) {
+        play(9000, 0.02, 'triangle', 0.006);
+      }
+
+      bgmStep++;
+    }, 250);
+  }
+
+  function stopBGM() {
+    if (bgmIntervalId) {
+      clearInterval(bgmIntervalId);
+      bgmIntervalId = null;
+    }
   }
 
   return {
@@ -171,7 +228,9 @@ var Sound = (function () {
     resume: resume,
     play: play,
     enabled: setEnabled,
-    isEnabled: isEnabled
+    isEnabled: isEnabled,
+    startBGM: startBGM,
+    stopBGM: stopBGM
   };
 })();
 

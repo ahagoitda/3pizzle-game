@@ -22,6 +22,12 @@ const Match3 = (function () {
   var gemLoadedCount = 0;
   var gemsLoaded = false;
   var numColors = 6;
+  var feverGauge = 0;
+  var feverActive = false;
+  var feverTimeLeft = 0;
+  var itemHammerCount = 1;
+  var itemShuffleCount = 1;
+  var activeItem = null;
 
   var GEM_NORMAL = 0;
   var GEM_LINE_H = 1;
@@ -115,6 +121,12 @@ const Match3 = (function () {
     hintCells = null;
     fallData = null;
     scorePopups = [];
+    feverGauge = 0;
+    feverActive = false;
+    feverTimeLeft = 0;
+    itemHammerCount = 1;
+    itemShuffleCount = 1;
+    activeItem = null;
     Effects.reset();
   }
 
@@ -335,8 +347,13 @@ const Match3 = (function () {
         }
       }
       while (writeRow >= 0) {
-        grid[writeRow][c] = Math.floor(Math.random() * numColors);
-        specialGems[writeRow][c] = GEM_NORMAL;
+        var newGem = Math.floor(Math.random() * numColors);
+        var special = GEM_NORMAL;
+        if (feverActive && Math.random() < 0.08) {
+          special = Math.floor(Math.random() * 3) + 1; // GEM_LINE_H, GEM_LINE_V, or GEM_BOMB
+        }
+        grid[writeRow][c] = newGem;
+        specialGems[writeRow][c] = special;
         writeRow--;
       }
     }
@@ -392,14 +409,33 @@ const Match3 = (function () {
 
     combo++;
     var baseScore = uniqueCells.length * 10 * combo;
+    var isFeverTriggered = false;
+    if (feverActive) {
+      baseScore *= 2;
+    } else {
+      feverGauge = Math.min(100, feverGauge + uniqueCells.length * 2.0);
+      if (feverGauge >= 100) {
+        feverActive = true;
+        feverTimeLeft = 10;
+        isFeverTriggered = true;
+      }
+    }
     score += baseScore;
+
+    if (isFeverTriggered) {
+      Sound.win();
+      Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FFD700', { speedMin: 80, speedMax: 200, sizeMin: 4, sizeMax: 8 });
+      scorePopups.push({ x: canvas.width / 2, y: canvas.height / 2 - 20, text: 'FEVER TIME! ✨', life: 2.0, maxLife: 2.0, color: '#FFD700' });
+    }
 
     if (combo > 1) Sound.combo(combo);
     else Sound.match();
 
     var popP = cellCenter(Math.round(uniqueCells.reduce(function(s, c2) { return s + c2.r; }, 0) / uniqueCells.length),
                            Math.round(uniqueCells.reduce(function(s, c2) { return s + c2.c; }, 0) / uniqueCells.length));
-    scorePopups.push({ x: popP.x, y: popP.y, text: '+' + baseScore, life: 1.0, maxLife: 1.0, color: combo > 1 ? '#FFD700' : '#FFFFFF' });
+    var scoreText = '+' + baseScore;
+    if (feverActive && !isFeverTriggered) scoreText += ' FEVER!';
+    scorePopups.push({ x: popP.x, y: popP.y, text: scoreText, life: 1.0, maxLife: 1.0, color: feverActive ? '#FFD700' : (combo > 1 ? '#FFD700' : '#FFFFFF') });
 
     for (var i2 = 0; i2 < uniqueCells.length; i2++) {
       var p = cellCenter(uniqueCells[i2].r, uniqueCells[i2].c);
@@ -505,6 +541,15 @@ const Match3 = (function () {
   }
 
   function update(dt) {
+    if (feverActive) {
+      feverTimeLeft -= dt;
+      if (feverTimeLeft <= 0) {
+        feverActive = false;
+        feverTimeLeft = 0;
+        feverGauge = 0;
+      }
+    }
+
     for (var i = scorePopups.length - 1; i >= 0; i--) {
       scorePopups[i].life -= dt;
       scorePopups[i].y -= 30 * dt;
@@ -622,9 +667,114 @@ const Match3 = (function () {
 
     if (animState === 'gameover') {
       drawGameOver();
+    } else {
+      drawFeverAndItems();
+    }
+
+    // 피버 타임 연출 (화려한 무지개 테두리 펄스 및 파티클 방출)
+    if (feverActive && animState !== 'gameover') {
+      var pulse = 0.4 + 0.2 * Math.sin(Date.now() / 100);
+      ctx.save();
+      var hue = (Date.now() / 15) % 360;
+      ctx.strokeStyle = 'hsla(' + hue + ', 100%, 60%, ' + pulse + ')';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+      ctx.restore();
+      
+      if (Math.random() < 0.15) {
+        var rx = Math.random() * canvas.width;
+        var ry = Math.random() * canvas.height;
+        var colors = ['#FF4757', '#FFA502', '#2ED573', '#3B82F6', '#A855F7', '#EC4899'];
+        var c = colors[Math.floor(Math.random() * colors.length)];
+        Effects.emit(rx, ry, 2, c, { speedMin: 20, speedMax: 80, sizeMin: 2, sizeMax: 4, lifeMin: 0.2, lifeMax: 0.5 });
+      }
     }
 
     ctx.restore();
+  }
+
+  function drawFeverAndItems() {
+    var cx = canvas.width / 2;
+    
+    // 1. Fever Gauge
+    var fX = 30;
+    var fY = 566;
+    var fW = canvas.width - 60;
+    var fH = 10;
+    
+    // Background bar
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.beginPath();
+    ctx.roundRect(fX, fY, fW, fH, 5);
+    ctx.fill();
+    
+    if (feverActive) {
+      // Pulsing rainbow/pink bar for fever duration
+      var fProgress = Math.max(0, feverTimeLeft / 10);
+      var pulse = 0.7 + 0.3 * Math.sin(Date.now() / 80);
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      var fGrad = ctx.createLinearGradient(fX, fY, fX + fW * fProgress, fY);
+      fGrad.addColorStop(0, '#FF4757');
+      fGrad.addColorStop(0.5, '#A855F7');
+      fGrad.addColorStop(1, '#EC4899');
+      ctx.fillStyle = fGrad;
+      ctx.beginPath();
+      ctx.roundRect(fX, fY, fW * fProgress, fH, 5);
+      ctx.fill();
+      ctx.restore();
+      
+      // Text
+      ctx.font = 'bold 11px "Outfit", sans-serif';
+      ctx.fillStyle = '#FFD700';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✨ FEVER ACTIVE (2x SCORE) ✨', cx, fY - 7);
+    } else {
+      // Normal progress bar
+      var fProgress = Math.max(0, feverGauge / 100);
+      if (fProgress > 0.001) {
+        ctx.fillStyle = '#EC4899';
+        ctx.beginPath();
+        ctx.roundRect(fX, fY, fW * fProgress, fH, 5);
+        ctx.fill();
+      }
+      
+      ctx.font = 'bold 11px "Outfit", sans-serif';
+      ctx.fillStyle = '#90A4AE';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('FEVER GAUGE: ' + Math.floor(feverGauge) + '%', cx, fY - 7);
+    }
+
+    // 2. Items Slot
+    var itemY = 596;
+    var itemW = 100;
+    var itemH = 38;
+    
+    // Item 1: Hammer
+    var hX = cx - 110;
+    var isHamHovered = (mouseX >= hX && mouseX <= hX + itemW && mouseY >= itemY && mouseY <= itemY + itemH);
+    var hamColor = (activeItem === 'hammer') ? '#FFD700' : (itemHammerCount > 0 ? (isHamHovered ? '#FFFFFF' : '#90A4AE') : '#546E7A');
+    var hamBg = (activeItem === 'hammer') ? 'rgba(255, 215, 0, 0.15)' : 'rgba(255, 255, 255, 0.04)';
+    drawRoundRect(hX, itemY, itemW, itemH, 10, hamBg, hamColor, (activeItem === 'hammer' || isHamHovered) ? 2 : 1.2);
+    
+    ctx.font = 'bold 13px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = hamColor;
+    ctx.fillText('🔨 Hammer ' + itemHammerCount + '/1', hX + itemW / 2, itemY + itemH / 2);
+
+    // Item 2: Shuffle
+    var sX = cx + 10;
+    var isShufHovered = (mouseX >= sX && mouseX <= sX + itemW && mouseY >= itemY && mouseY <= itemY + itemH);
+    var shufColor = (itemShuffleCount > 0 ? (isShufHovered ? '#FFFFFF' : '#90A4AE') : '#546E7A');
+    var shufBg = 'rgba(255, 255, 255, 0.04)';
+    var shufBorder = isShufHovered ? '#FFFFFF' : shufColor;
+    drawRoundRect(sX, itemY, itemW, itemH, 10, shufBg, shufBorder, isShufHovered ? 2 : 1.2);
+    
+    ctx.fillStyle = shufColor;
+    ctx.fillText('🔀 Shuffle ' + itemShuffleCount + '/1', sX + itemW / 2, itemY + itemH / 2);
   }
 
   function drawBoard() {
@@ -1092,15 +1242,67 @@ const Match3 = (function () {
       if (p.x < 80) { onBack(); return; }
       return;
     }
+
+    // Check if clicked items slot (Y = 596, H = 38)
+    var cx = canvas.width / 2;
+    var itemY = 596;
+    var itemW = 100;
+    var itemH = 38;
+    if (p.y >= itemY && p.y <= itemY + itemH && animState === 'idle') {
+      var hX = cx - 110;
+      var sX = cx + 10;
+      if (p.x >= hX && p.x <= hX + itemW) {
+        if (itemHammerCount > 0) {
+          activeItem = (activeItem === 'hammer') ? null : 'hammer';
+          Sound.click();
+        } else {
+          Sound.invalid();
+        }
+        return;
+      }
+      if (p.x >= sX && p.x <= sX + itemW) {
+        if (itemShuffleCount > 0) {
+          itemShuffleCount--;
+          shuffleBoard();
+          activeItem = null;
+        } else {
+          Sound.invalid();
+        }
+        return;
+      }
+    }
+
     if (animState !== 'idle') return;
     var cell = getCell(p.x, p.y);
     if (!cell) { selected = null; return; }
+
+    if (activeItem === 'hammer') {
+      useHammer(cell.r, cell.c);
+      return;
+    }
+
     pointerCell = cell;
     swipeStart = { x: p.x, y: p.y, cell: cell };
     selected = cell;
     pointerDown = true;
     hintTimer = 0;
     hintCells = null;
+  }
+
+  function useHammer(r, c) {
+    if (grid[r][c] < 0) return;
+    itemHammerCount--;
+    activeItem = null;
+    Sound.place();
+    var p = cellCenter(r, c);
+    var gcIdx = grid[r][c];
+    var gc2 = gemColors[gcIdx] || gemColors[0];
+    Effects.emit(p.x, p.y, 15, gc2.light, { speedMin: 60, speedMax: 180, sizeMin: 4, sizeMax: 8 });
+    Effects.shake(4);
+    grid[r][c] = -1;
+    specialGems[r][c] = GEM_NORMAL;
+    applyGravity();
+    startFallAnimation();
   }
 
   function onUp(e) {
