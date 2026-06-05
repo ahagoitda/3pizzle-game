@@ -98,10 +98,20 @@ const Match3 = (function () {
 
   function resetGame() {
     var lvl = Match3Levels.getLevel(currentLevelId);
-    timeLeft = lvl.time;
+    if (difficulty === 'easy') {
+      numColors = Math.max(4, lvl.colors - 1);
+      targetScore = Math.round(lvl.target * 0.7);
+      timeLeft = Math.round(lvl.time * 1.2);
+    } else if (difficulty === 'hard') {
+      numColors = Math.min(6, lvl.colors + 1);
+      targetScore = Math.round(lvl.target * 1.3);
+      timeLeft = Math.round(lvl.time * 0.85);
+    } else {
+      numColors = lvl.colors;
+      targetScore = lvl.target;
+      timeLeft = lvl.time;
+    }
     maxTime = timeLeft;
-    targetScore = lvl.target;
-    numColors = lvl.colors;
 
     grid = [];
     specialGems = [];
@@ -505,7 +515,22 @@ const Match3 = (function () {
     return result;
   }
 
+  function wouldCreateMatch(r, c, type) {
+    // Horizontal match check
+    if (c >= 2 && grid[r][c - 1] === type && grid[r][c - 2] === type) return true;
+    if (c < COLS - 2 && grid[r][c + 1] === type && grid[r][c + 2] === type) return true;
+    if (c >= 1 && c < COLS - 1 && grid[r][c - 1] === type && grid[r][c + 1] === type) return true;
+
+    // Vertical match check
+    if (r >= 2 && grid[r - 1] && grid[r - 1][c] === type && grid[r - 2] && grid[r - 2][c] === type) return true;
+    if (r < ROWS - 2 && grid[r + 1] && grid[r + 1][c] === type && grid[r + 2] && grid[r + 2][c] === type) return true;
+    if (r >= 1 && r < ROWS - 1 && grid[r - 1] && grid[r - 1][c] === type && grid[r + 1] && grid[r + 1][c] === type) return true;
+
+    return false;
+  }
+
   function applyGravity() {
+    // Pass 1: Shift existing gems down, leave empty slots as -1
     for (var c = 0; c < COLS; c++) {
       var nonLocked = [];
       for (var r = ROWS - 1; r >= 0; r--) {
@@ -522,14 +547,80 @@ const Match3 = (function () {
             specialGems[r][c] = nonLocked[idx].special;
             idx++;
           } else {
-            var newGem = Math.floor(Math.random() * numColors);
-            var special = GEM_NORMAL;
-            if (feverActive && Math.random() < 0.08) {
-              special = Math.floor(Math.random() * 3) + 1; // GEM_LINE_H, GEM_LINE_V, or GEM_BOMB
-            }
-            grid[r][c] = newGem;
-            specialGems[r][c] = special;
+            grid[r][c] = -1;
+            specialGems[r][c] = GEM_NORMAL;
           }
+        }
+      }
+    }
+
+    // Determine cascade prevention probability based on difficulty and combo count
+    var preventMatches = false;
+    var roll = Math.random();
+    
+    if (difficulty === 'easy') {
+      if (combo === 1) {
+        if (roll < 0.45) preventMatches = true; // 45% chance to prevent cascade
+      } else if (combo === 2) {
+        if (roll < 0.75) preventMatches = true; // 75% chance to prevent cascade
+      } else if (combo >= 3) {
+        preventMatches = true; // 100% chance to prevent cascade
+      }
+    } else if (difficulty === 'hard') {
+      if (combo === 1) {
+        if (roll < 0.90) preventMatches = true; // 90% chance to prevent cascade
+      } else if (combo >= 2) {
+        preventMatches = true; // 100% chance to prevent cascade (max 1 auto cascade)
+      }
+    } else { // normal
+      if (combo === 1) {
+        if (roll < 0.75) preventMatches = true; // 75% chance to prevent cascade
+      } else if (combo === 2) {
+        if (roll < 0.95) preventMatches = true; // 95% chance to prevent cascade
+      } else if (combo >= 3) {
+        preventMatches = true; // 100% chance to prevent cascade
+      }
+    }
+
+    // Pass 2: Spawn new gems in empty slots
+    for (var r = ROWS - 1; r >= 0; r--) {
+      for (var c = 0; c < COLS; c++) {
+        if (grid[r][c] === -1) {
+          var special = GEM_NORMAL;
+          if (feverActive && Math.random() < 0.08) {
+            special = Math.floor(Math.random() * 3) + 1;
+          }
+
+          var newGem = -1;
+          if (preventMatches) {
+            // Find a color that does not create a match
+            var colorsList = [];
+            for (var ci = 0; ci < numColors; ci++) {
+              colorsList.push(ci);
+            }
+            // Shuffle colorsList to randomize color selection
+            for (var i = colorsList.length - 1; i > 0; i--) {
+              var j = Math.floor(Math.random() * (i + 1));
+              var temp = colorsList[i];
+              colorsList[i] = colorsList[j];
+              colorsList[j] = temp;
+            }
+
+            for (var i = 0; i < colorsList.length; i++) {
+              var col = colorsList[i];
+              if (!wouldCreateMatch(r, c, col)) {
+                newGem = col;
+                break;
+              }
+            }
+          }
+
+          if (newGem === -1) {
+            newGem = Math.floor(Math.random() * numColors);
+          }
+
+          grid[r][c] = newGem;
+          specialGems[r][c] = special;
         }
       }
     }
@@ -824,7 +915,6 @@ const Match3 = (function () {
         applyGravity();
         startFallAnimation();
         removalData = null;
-        combo = 0;
       }
     }
 
@@ -837,6 +927,7 @@ const Match3 = (function () {
           beginRemoval(newMatches);
         } else {
           animState = 'idle';
+          combo = 0;
           if (!hasValidMoves()) {
             shuffleBoard();
           }
