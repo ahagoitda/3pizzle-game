@@ -1,8 +1,9 @@
-var CACHE_NAME = '3pizzle-v6';
+var CACHE_NAME = '3pizzle-v7';
 var CACHE_URLS = [
   './',
   './index.html',
   './effects.js',
+  './match3_levels.js',
   './match3.js',
   './blockpuzzle.js',
   './mahjong.js',
@@ -27,7 +28,8 @@ var CACHE_URLS = [
   './assets/block_green.png',
   './assets/block_orange.png',
   './assets/block_red.png',
-  './assets/block_pink.png'
+  './assets/block_pink.png',
+  './assets/world1_forest.png'
 ];
 
 self.addEventListener('install', function (event) {

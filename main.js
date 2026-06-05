@@ -17,6 +17,7 @@ var Game = (function () {
   var mouseX = -1000;
   var mouseY = -1000;
   var playCount = 0;
+  var worldImages = { world1: null, world2: null };
 
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
@@ -30,6 +31,11 @@ var Game = (function () {
     animId = null;
     lastTime = 0;
     menuPulse = 0;
+
+    // Load world images
+    worldImages.world1 = new Image();
+    worldImages.world1.src = 'assets/world1_forest.png';
+
     loadScores();
     loadDifficulty();
     loadPlayCount();
@@ -166,90 +172,248 @@ var Game = (function () {
     ctx.save();
     ctx.shadowColor = 'rgba(233, 30, 99, 0.2)';
     ctx.shadowBlur = 20;
-    drawRoundRect(cx - 130, ch * 0.08, 260, 58, 20, 'rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.1)', 1.5);
+    drawRoundRect(cx - 130, ch * 0.04, 260, 48, 16, 'rgba(25, 18, 48, 0.85)', 'rgba(255, 255, 255, 0.08)', 1.5);
     ctx.restore();
 
-    // HSL 색조 순환 타이틀 그라디언트
     var titleGrad = ctx.createLinearGradient(cx - 100, 0, cx + 100, 0);
     var hue1 = Math.floor(menuPulse * 40) % 360;
     var hue2 = (hue1 + 60) % 360;
     titleGrad.addColorStop(0, 'hsl(' + hue1 + ', 100%, 75%)');
     titleGrad.addColorStop(1, 'hsl(' + hue2 + ', 100%, 75%)');
 
-    ctx.font = 'bold 26px "Outfit", "Segoe UI", sans-serif';
+    ctx.font = 'bold 22px "Outfit", "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = titleGrad;
-    ctx.fillText('\u{1F3AE} Triple Puzzle', cx, ch * 0.08 + 29);
+    ctx.fillText('🌸 Anipang Stage Mode', cx, ch * 0.04 + 24);
 
-    ctx.font = '13px "Outfit", "Segoe UI", sans-serif';
-    ctx.fillStyle = '#90A4AE';
-    ctx.fillText('Match 3  \u2022  Block Puzzle  \u2022  Mahjong', cx, ch * 0.08 + 72);
+    var unlockedLvlId = Match3Levels.getUnlockedLevel();
+    var unlockedIdx = Match3Levels.getLevelIndex(unlockedLvlId);
 
-    var buttons = [
-      { label: '\u{1F48E} Anipang', sub: 'Match-3 Puzzle', mode: 'match3', bg: '#FF6B81', border: '#E91E63', glow: 'rgba(233, 30, 99, 0.4)' },
-      { label: '\u{1F9E9} Block', sub: 'Puzzle \u2022 8 Stages', mode: 'block', bg: '#42A5F5', border: '#1E88E5', glow: 'rgba(30, 136, 229, 0.4)' },
-      { label: '\u{1F004} Mahjong', sub: 'Solitaire', mode: 'mahjong', bg: '#AB47BC', border: '#8E24AA', glow: 'rgba(142, 36, 170, 0.4)' }
-    ];
+    // 1. World 1 Card
+    var w1Y = 96;
+    var cardW = cw - 60;
+    var cardH = 92;
+    
+    var cardGrad = ctx.createLinearGradient(30, w1Y, 30 + cardW, w1Y + cardH);
+    cardGrad.addColorStop(0, 'rgba(46, 213, 115, 0.08)');
+    cardGrad.addColorStop(0.5, 'rgba(102, 187, 106, 0.05)');
+    cardGrad.addColorStop(1, 'rgba(0, 150, 136, 0.1)');
+    drawRoundRect(30, w1Y, cardW, cardH, 16, cardGrad, 'rgba(255, 67, 101, 0.15)', 1.2);
 
-    var btnW = cw - 60;
-    var btnH = 68;
-    var btnGap = 16;
-    var startY = ch * 0.24;
-
-    for (var i = 0; i < buttons.length; i++) {
-      var btn = buttons[i];
-      var by = startY + i * (btnH + btnGap);
-
-      // 호버 판정
-      var hovered = (mouseX >= 30 && mouseX <= 30 + btnW && mouseY >= by && mouseY <= by + btnH);
-
-      ctx.save();
-      var drawY = by;
-      var drawH = btnH;
-      var drawW = btnW;
-      var drawX = 30;
-      
-      if (hovered) {
-        ctx.shadowColor = btn.glow;
-        ctx.shadowBlur = 18;
-        ctx.shadowOffsetY = 4;
-        drawY = by - 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(30, w1Y, cardW, cardH, 16);
+    ctx.clip();
+    
+    if (worldImages.world1 && worldImages.world1.complete && worldImages.world1.naturalWidth !== 0) {
+      var img = worldImages.world1;
+      var imgRatio = img.width / img.height;
+      var cardRatio = cardW / cardH;
+      var dw, dh, dx, dy;
+      if (imgRatio > cardRatio) {
+        dh = cardH;
+        dw = cardH * imgRatio;
+        dx = 30 + (cardW - dw) / 2;
+        dy = w1Y;
       } else {
-        ctx.shadowColor = 'rgba(0,0,0,0.15)';
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetY = 3;
+        dw = cardW;
+        dh = cardW / imgRatio;
+        dx = 30;
+        dy = w1Y + (cardH - dh) / 2;
+      }
+      ctx.globalAlpha = 0.45;
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.globalAlpha = 1.0;
+    } else {
+      ctx.fillStyle = 'rgba(46, 213, 115, 0.04)';
+      ctx.beginPath();
+      ctx.arc(30 + cardW * 0.25, w1Y + cardH + 10, 45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(0, 150, 136, 0.04)';
+      ctx.beginPath();
+      ctx.arc(30 + cardW * 0.75, w1Y + cardH + 20, 60, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(76, 175, 80, 0.2)';
+      ctx.beginPath();
+      ctx.ellipse(30 + cardW - 35, w1Y + 22, 6, 10, 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    
+    ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FF6B81';
+    ctx.textAlign = 'left';
+    ctx.fillText('🌸 World 1: Sweet Forest', 42, w1Y + 18);
+
+    var circleW = 34;
+    var circleGap = 16;
+    var totalW = 5 * circleW + 4 * circleGap;
+    var startX = cx - totalW / 2;
+    var cy1 = w1Y + 56;
+
+    for (var i = 0; i < 5; i++) {
+      var lvl = Match3Levels.levels[i];
+      var cx_node = startX + i * (circleW + circleGap) + circleW / 2;
+      var isUnlocked = i <= unlockedIdx;
+      var isCleared = i < unlockedIdx;
+      
+      var isHovered = (mouseX >= cx_node - circleW/2 && mouseX <= cx_node + circleW/2 && mouseY >= cy1 - circleW/2 && mouseY <= cy1 + circleW/2);
+      
+      ctx.save();
+      var nodeBg, nodeStroke, textCol;
+      if (isCleared) {
+        nodeBg = isHovered ? '#FFD700' : 'rgba(255, 215, 0, 0.15)';
+        nodeStroke = '#FFD700';
+        textCol = isHovered ? '#000000' : '#FFD700';
+      } else if (isUnlocked) {
+        var pulse = 0.5 + 0.5 * Math.sin(menuPulse * 6);
+        nodeBg = isHovered ? '#FF4757' : 'rgba(255, 71, 87, 0.25)';
+        nodeStroke = 'rgba(255, 255, 255, ' + (0.6 + 0.4 * pulse) + ')';
+        textCol = '#FFFFFF';
+        if (isHovered) {
+          ctx.shadowColor = '#FF4757';
+          ctx.shadowBlur = 10;
+        }
+      } else {
+        nodeBg = 'rgba(255, 255, 255, 0.02)';
+        nodeStroke = 'rgba(255, 255, 255, 0.08)';
+        textCol = 'rgba(255, 255, 255, 0.2)';
       }
       
-      drawRoundRect(drawX, drawY, drawW, drawH, 16, btn.bg, null);
+      drawRoundRect(cx_node - circleW/2, cy1 - circleW/2, circleW, circleW, circleW/2, nodeBg, nodeStroke, isUnlocked ? 2 : 1);
       ctx.restore();
 
-      var borderCol = hovered ? '#FFFFFF' : btn.border;
-      drawRoundRect(drawX, drawY, drawW, drawH, 16, null, borderCol, hovered ? 2.5 : 2);
-
-      ctx.font = 'bold 18px "Outfit", "Segoe UI", sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(btn.label, 48, drawY + drawH / 2 - 8);
-
-      ctx.font = '11px "Outfit", "Segoe UI", sans-serif';
-      ctx.fillStyle = hovered ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)';
-      ctx.fillText(btn.sub, 48, drawY + drawH / 2 + 12);
-
-      ctx.textAlign = 'right';
-      ctx.font = 'bold 22px "Outfit", "Segoe UI", sans-serif';
-      ctx.fillStyle = hovered ? '#FFFFFF' : 'rgba(255,255,255,0.3)';
-      ctx.fillText('\u25B6', 30 + drawW - 20, drawY + drawH / 2);
+      ctx.font = 'bold 11px "Outfit", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = textCol;
+      ctx.fillText(isUnlocked ? lvl.id : '🔒', cx_node, cy1);
     }
 
-    var nextY = startY + 3 * (btnH + btnGap);
+    // 2. World 2 Card
+    var w2Y = w1Y + cardH + 16;
     
-    drawDifficultyToggle(cx, nextY + 8);
-    drawScores(cx, nextY + 64);
+    var cardGrad2 = ctx.createLinearGradient(30, w2Y, 30 + cardW, w2Y + cardH);
+    cardGrad2.addColorStop(0, 'rgba(0, 188, 212, 0.08)');
+    cardGrad2.addColorStop(0.5, 'rgba(128, 222, 234, 0.04)');
+    cardGrad2.addColorStop(1, 'rgba(103, 58, 183, 0.1)');
+    drawRoundRect(30, w2Y, cardW, cardH, 16, cardGrad2, 'rgba(0, 188, 212, 0.15)', 1.2);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(30, w2Y, cardW, cardH, 16);
+    ctx.clip();
+
+    if (worldImages.world2 && worldImages.world2.complete && worldImages.world2.naturalWidth !== 0) {
+      var img = worldImages.world2;
+      var imgRatio = img.width / img.height;
+      var cardRatio = cardW / cardH;
+      var dw, dh, dx, dy;
+      if (imgRatio > cardRatio) {
+        dh = cardH;
+        dw = cardH * imgRatio;
+        dx = 30 + (cardW - dw) / 2;
+        dy = w2Y;
+      } else {
+        dw = cardW;
+        dh = cardW / imgRatio;
+        dx = 30;
+        dy = w2Y + (cardH - dh) / 2;
+      }
+      ctx.globalAlpha = 0.45;
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.globalAlpha = 1.0;
+    } else {
+      ctx.fillStyle = 'rgba(0, 188, 212, 0.05)';
+      ctx.beginPath();
+      ctx.moveTo(30 + cardW * 0.4, w2Y);
+      ctx.lineTo(30 + cardW * 0.45, w2Y + 24);
+      ctx.lineTo(30 + cardW * 0.5, w2Y);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(103, 58, 183, 0.06)';
+      ctx.beginPath();
+      ctx.moveTo(30 + cardW * 0.7, w2Y + cardH);
+      ctx.lineTo(30 + cardW * 0.76, w2Y + cardH - 30);
+      ctx.lineTo(30 + cardW * 0.82, w2Y + cardH);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(0, 188, 212, 0.3)';
+      ctx.shadowColor = '#00CBD4';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      var cx_c = 30 + cardW - 35;
+      var cy_c = w2Y + 22;
+      ctx.moveTo(cx_c, cy_c - 10);
+      ctx.lineTo(cx_c + 6, cy_c);
+      ctx.lineTo(cx_c, cy_c + 10);
+      ctx.lineTo(cx_c - 6, cy_c);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+    
+    ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#00CBD4';
+    ctx.textAlign = 'left';
+    ctx.fillText('💎 World 2: Neon Cave', 42, w2Y + 18);
+
+    var cy2 = w2Y + 56;
+    for (var i = 0; i < 5; i++) {
+      var lvlIdx = i + 5;
+      var lvl = Match3Levels.levels[lvlIdx];
+      var cx_node = startX + i * (circleW + circleGap) + circleW / 2;
+      var isUnlocked = lvlIdx <= unlockedIdx;
+      var isCleared = lvlIdx < unlockedIdx;
+      
+      var isHovered = (mouseX >= cx_node - circleW/2 && mouseX <= cx_node + circleW/2 && mouseY >= cy2 - circleW/2 && mouseY <= cy2 + circleW/2);
+      
+      ctx.save();
+      var nodeBg, nodeStroke, textCol;
+      if (isCleared) {
+        nodeBg = isHovered ? '#FFD700' : 'rgba(255, 215, 0, 0.15)';
+        nodeStroke = '#FFD700';
+        textCol = isHovered ? '#000000' : '#FFD700';
+      } else if (isUnlocked) {
+        var pulse = 0.5 + 0.5 * Math.sin(menuPulse * 6);
+        nodeBg = isHovered ? '#00CBD4' : 'rgba(0, 203, 212, 0.25)';
+        nodeStroke = 'rgba(255, 255, 255, ' + (0.6 + 0.4 * pulse) + ')';
+        textCol = '#FFFFFF';
+        if (isHovered) {
+          ctx.shadowColor = '#00CBD4';
+          ctx.shadowBlur = 10;
+        }
+      } else {
+        nodeBg = 'rgba(255, 255, 255, 0.02)';
+        nodeStroke = 'rgba(255, 255, 255, 0.08)';
+        textCol = 'rgba(255, 255, 255, 0.2)';
+      }
+      
+      drawRoundRect(cx_node - circleW/2, cy2 - circleW/2, circleW, circleW, circleW/2, nodeBg, nodeStroke, isUnlocked ? 2 : 1);
+      ctx.restore();
+
+      ctx.font = 'bold 11px "Outfit", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = textCol;
+      ctx.fillText(isUnlocked ? lvl.id : '🔒', cx_node, cy2);
+    }
+
+    var diffCY = w2Y + 92 + 16;
+    drawDifficultyToggle(cx, diffCY);
+
+    var miniY = diffCY + 54;
+    var miniYStart = miniY + 12;
+    drawMiniGames(cx, miniYStart);
+
+    var recordsY = miniYStart + 68 + 16;
+    drawScores(cx, recordsY);
 
     if (deferredPrompt && !installDismissed) {
-      drawInstallBanner(cx, nextY + 172);
+      var instY = recordsY + 106;
+      drawInstallBanner(cx, instY);
     }
   }
 
@@ -303,6 +467,60 @@ var Game = (function () {
     }
   }
 
+  function drawMiniGames(cx, cy) {
+    var cw = canvas.width;
+    var cardW = (cw - 80) / 2;
+    var cardH = 68;
+
+    // Block Puzzle Card (Left)
+    var bx = 30;
+    var by = cy;
+    var bHovered = (mouseX >= bx && mouseX <= bx + cardW && mouseY >= by && mouseY <= by + cardH);
+    ctx.save();
+    if (bHovered) {
+      ctx.shadowColor = 'rgba(66, 165, 245, 0.4)';
+      ctx.shadowBlur = 12;
+    }
+    var bGrad = ctx.createLinearGradient(bx, by, bx + cardW, by + cardH);
+    bGrad.addColorStop(0, 'rgba(66, 165, 245, 0.12)');
+    bGrad.addColorStop(1, 'rgba(66, 165, 245, 0.04)');
+    drawRoundRect(bx, by, cardW, cardH, 12, bGrad, bHovered ? 'rgba(66, 165, 245, 0.4)' : 'rgba(66, 165, 245, 0.15)', 1.2);
+    ctx.restore();
+
+    ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#42A5F5';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🧩 Block Puzzle', bx + cardW / 2, by + cardH / 2 - 8);
+    ctx.font = '10px "Outfit", sans-serif';
+    ctx.fillStyle = '#90A4AE';
+    ctx.fillText('Classic Strategy', bx + cardW / 2, by + cardH / 2 + 12);
+
+    // Mahjong Solitaire Card (Right)
+    var mx = cw / 2 + 10;
+    var my = cy;
+    var mHovered = (mouseX >= mx && mouseX <= mx + cardW && mouseY >= my && mouseY <= my + cardH);
+    ctx.save();
+    if (mHovered) {
+      ctx.shadowColor = 'rgba(171, 71, 188, 0.4)';
+      ctx.shadowBlur = 12;
+    }
+    var mGrad = ctx.createLinearGradient(mx, my, mx + cardW, my + cardH);
+    mGrad.addColorStop(0, 'rgba(171, 71, 188, 0.12)');
+    mGrad.addColorStop(1, 'rgba(171, 71, 188, 0.04)');
+    drawRoundRect(mx, my, cardW, cardH, 12, mGrad, mHovered ? 'rgba(171, 71, 188, 0.4)' : 'rgba(171, 71, 188, 0.15)', 1.2);
+    ctx.restore();
+
+    ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#AB47BC';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🀄 Mahjong Solitaire', mx + cardW / 2, my + cardH / 2 - 8);
+    ctx.font = '10px "Outfit", sans-serif';
+    ctx.fillStyle = '#90A4AE';
+    ctx.fillText('Zen Tile Match', mx + cardW / 2, my + cardH / 2 + 12);
+  }
+
   function drawScores(cx, cy) {
     var pw = canvas.width - 60;
     var ph = 88;
@@ -352,6 +570,8 @@ var Game = (function () {
     var bw = canvas.width - 60;
     var bh = 44;
 
+    var closeX = 30 + bw - 16;
+    var isCloseHovered = (mouseX >= closeX - 10 && mouseX <= closeX + 10 && mouseY >= cy + 4 && mouseY <= cy + 20);
     var hovered = (mouseX >= 30 && mouseX <= 30 + bw && mouseY >= cy && mouseY <= cy + bh);
 
     ctx.save();
@@ -374,16 +594,14 @@ var Game = (function () {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText('\u2B07 Install App', cx, cy + bh / 2 - 2);
-
-    var closeX = 30 + bw - 16;
-    var isCloseHovered = (mouseX >= closeX - 10 && mouseX <= closeX + 10 && mouseY >= cy + 4 && mouseY <= cy + 20);
-    
     ctx.font = 'bold 11px "Outfit", "Segoe UI", sans-serif';
     ctx.fillStyle = isCloseHovered ? '#FFCDD2' : 'rgba(255,255,255,0.7)';
     ctx.fillText('\u2715', closeX, cy + 12);
   }
 
-  function switchMode(newMode) {
+  var selectedLevelId = '1-1';
+
+  function switchMode(newMode, lvlId) {
     if (mode === newMode) return;
 
     var prevScore = 0;
@@ -395,7 +613,12 @@ var Game = (function () {
 
     mode = newMode;
 
-    if (mode === 'match3') { Match3.init(canvas, ctx, goToMenu, difficulty); Match3.setHighScore(highScores.match3 || 0); incrementPlayCount(); }
+    if (mode === 'match3') { 
+      selectedLevelId = lvlId || '1-1';
+      Match3.init(canvas, ctx, goToMenu, difficulty, selectedLevelId); 
+      Match3.setHighScore(highScores.match3 || 0); 
+      incrementPlayCount(); 
+    }
     else if (mode === 'block') { BlockPuzzle.init(canvas, ctx, goToMenu, difficulty); BlockPuzzle.setHighScore(highScores.block || 0); incrementPlayCount(); }
     else if (mode === 'mahjong') { Mahjong.init(canvas, ctx, goToMenu, difficulty); Mahjong.setHighScore(highScores.mahjong || 0); incrementPlayCount(); }
 
@@ -468,11 +691,6 @@ var Game = (function () {
     var cw = canvas.width;
     var ch = canvas.height;
 
-    var startY = ch * 0.24;
-    var btnW = cw - 60;
-    var btnH = 68;
-    var btnGap = 16;
-
     // 사운드 토글 클릭 판정
     var soundX = cw - 45;
     var soundY = 42;
@@ -483,16 +701,59 @@ var Game = (function () {
       return;
     }
 
+    var circleW = 34;
+    var circleGap = 16;
+    var totalW = 5 * circleW + 4 * circleGap;
+    var startX = cw / 2 - totalW / 2;
+    var cy1 = 96 + 56;
+    var unlockedLvlId = Match3Levels.getUnlockedLevel();
+    var unlockedIdx = Match3Levels.getLevelIndex(unlockedLvlId);
+
+    // World 1 Level nodes
+    if (y >= cy1 - 20 && y <= cy1 + 20) {
+      for (var i = 0; i < 5; i++) {
+        var cx_node = startX + i * (circleW + circleGap) + circleW / 2;
+        if (x >= cx_node - 20 && x <= cx_node + 20) {
+          if (i <= unlockedIdx) {
+            Sound.click();
+            switchMode('match3', Match3Levels.levels[i].id);
+          } else {
+            Sound.invalid();
+          }
+          return;
+        }
+      }
+    }
+
+    // World 2 Level nodes
+    var w2Y = 96 + 92 + 16;
+    var cy2 = w2Y + 56;
+    if (y >= cy2 - 20 && y <= cy2 + 20) {
+      for (var i = 0; i < 5; i++) {
+        var lvlIdx = i + 5;
+        var cx_node = startX + i * (circleW + circleGap) + circleW / 2;
+        if (x >= cx_node - 20 && x <= cx_node + 20) {
+          if (lvlIdx <= unlockedIdx) {
+            Sound.click();
+            switchMode('match3', Match3Levels.levels[lvlIdx].id);
+          } else {
+            Sound.invalid();
+          }
+          return;
+        }
+      }
+    }
+
     // 난이도 토글 클릭 판정
-    var diffCY = startY + 3 * (btnH + btnGap) + 8;
-    var totalW = 220;
-    var startX = cw / 2 - totalW / 2 + 2;
-    var diffBtnH = 32;
+    var diffCY = w2Y + 92 + 16;
     var diffTopY = diffCY + 4;
+    var diffBtnH = 32;
+    var totalW_diff = 220;
+    var startX_diff = cw / 2 - totalW_diff / 2 + 2;
     if (y >= diffTopY && y <= diffTopY + diffBtnH) {
       for (var d = 0; d < 3; d++) {
-        var bx = startX + d * (totalW / 3) + 1;
-        var bw = totalW / 3 - 2;
+        var bx = startX_diff + d * (totalW_diff / 3) + 1;
+        var bw = totalW_diff / 3 - 2;
         if (x >= bx && x <= bx + bw) {
           difficulty = difficultyNames[d];
           saveDifficulty();
@@ -502,9 +763,28 @@ var Game = (function () {
       }
     }
 
+    // 미니 게임 클릭 판정
+    var miniY = diffCY + 54;
+    var miniYStart = miniY + 12;
+    var miniCardW = (cw - 80) / 2;
+    var miniCardH = 68;
+    if (y >= miniYStart && y <= miniYStart + miniCardH) {
+      if (x >= 30 && x <= 30 + miniCardW) {
+        Sound.click();
+        switchMode('block');
+        return;
+      }
+      if (x >= cw / 2 + 10 && x <= cw / 2 + 10 + miniCardW) {
+        Sound.click();
+        switchMode('mahjong');
+        return;
+      }
+    }
+
     // 설치 배너 클릭 판정
+    var recordsY = miniYStart + miniCardH + 16;
     if (deferredPrompt && !installDismissed) {
-      var instY = startY + 3 * (btnH + btnGap) + 172;
+      var instY = recordsY + 106;
       var instW = cw - 60;
       var instH = 44;
       if (x >= 30 && x <= 30 + instW && y >= instY && y <= instY + instH) {
@@ -520,17 +800,6 @@ var Game = (function () {
           }
           deferredPrompt = null;
         });
-        return;
-      }
-    }
-
-    // 게임 모드 선택 클릭 판정
-    var buttons = ['match3', 'block', 'mahjong'];
-    for (var i = 0; i < buttons.length; i++) {
-      var by = startY + i * (btnH + btnGap);
-      if (x >= 30 && x <= 30 + btnW && y >= by && y <= by + btnH) {
-        Sound.click();
-        switchMode(buttons[i]);
         return;
       }
     }

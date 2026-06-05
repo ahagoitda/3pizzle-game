@@ -28,6 +28,8 @@ const Match3 = (function () {
   var itemHammerCount = 1;
   var itemShuffleCount = 1;
   var activeItem = null;
+  var targetScore = 1000;
+  var currentLevelId = '1-1';
 
   var GEM_NORMAL = 0;
   var GEM_LINE_H = 1;
@@ -35,19 +37,24 @@ const Match3 = (function () {
   var GEM_BOMB = 3;
   var GEM_RAINBOW = 4;
 
-  function init(cnv, ctxt, backCb, diff) {
+  function init(cnv, ctxt, backCb, diff, lvlId) {
     canvas = cnv;
     ctx = ctxt;
     onBack = backCb;
     difficulty = diff || 'normal';
+    currentLevelId = lvlId || '1-1';
+
+    var lvl = Match3Levels.getLevel(currentLevelId);
+    targetScore = lvl.target;
+    timeLeft = lvl.time;
+    maxTime = timeLeft;
+    numColors = lvl.colors;
+
+    GEM = Math.floor((canvas.width - 32 - (COLS - 1) * GAP) / COLS);
     BOARD_W = COLS * GEM + (COLS - 1) * GAP;
     BOARD_H = ROWS * GEM + (ROWS - 1) * GAP;
     GRID_X = Math.floor((canvas.width - BOARD_W) / 2);
     GRID_Y = 100;
-
-    if (difficulty === 'easy') numColors = 4;
-    else if (difficulty === 'hard') numColors = 6;
-    else numColors = 5;
 
     gemColors = [
       { main: '#FF4757', light: '#FF6B81', dark: '#B71540' },
@@ -90,6 +97,12 @@ const Match3 = (function () {
   }
 
   function resetGame() {
+    var lvl = Match3Levels.getLevel(currentLevelId);
+    timeLeft = lvl.time;
+    maxTime = timeLeft;
+    targetScore = lvl.target;
+    numColors = lvl.colors;
+
     grid = [];
     specialGems = [];
     for (var r = 0; r < ROWS; r++) {
@@ -105,8 +118,6 @@ const Match3 = (function () {
     }
     score = 0;
     combo = 0;
-    timeLeft = 60;
-    maxTime = timeLeft;
     selected = null;
     animState = 'idle';
     animTimer = 0;
@@ -556,7 +567,7 @@ const Match3 = (function () {
       if (scorePopups[i].life <= 0) scorePopups.splice(i, 1);
     }
 
-    if (animState === 'gameover') {
+    if (animState === 'clear' || animState === 'failed' || animState === 'gameover') {
       gameOverTime += dt;
       Effects.update(dt);
       return;
@@ -566,12 +577,21 @@ const Match3 = (function () {
       timeLeft -= dt;
       if (timeLeft <= 0) {
         timeLeft = 0;
-        animState = 'gameover';
         gameOverTime = 0;
-        Sound.gameover();
-        Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FFD700', {
-          speedMin: 80, speedMax: 250, lifeMin: 0.5, lifeMax: 1.5, sizeMin: 3, sizeMax: 8
-        });
+        if (score >= targetScore) {
+          animState = 'clear';
+          Match3Levels.setUnlockedLevel(Match3Levels.getNextLevelId(currentLevelId));
+          Sound.win();
+          Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FFD700', {
+            speedMin: 80, speedMax: 250, lifeMin: 0.5, lifeMax: 1.5, sizeMin: 3, sizeMax: 8
+          });
+        } else {
+          animState = 'failed';
+          Sound.gameover();
+          Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FF3D00', {
+            speedMin: 80, speedMax: 250, lifeMin: 0.5, lifeMax: 1.5, sizeMin: 3, sizeMax: 8
+          });
+        }
         return;
       }
     }
@@ -665,7 +685,11 @@ const Match3 = (function () {
       ctx.restore();
     }
 
-    if (animState === 'gameover') {
+    if (animState === 'clear') {
+      drawClearScreen();
+    } else if (animState === 'failed') {
+      drawFailedScreen();
+    } else if (animState === 'gameover') {
       drawGameOver();
     } else {
       drawFeverAndItems();
@@ -1080,11 +1104,22 @@ const Match3 = (function () {
     ctx.fillStyle = isBackHovered ? '#FFFFFF' : '#90A4AE';
     ctx.fillText('\u2190 Back', 16, 28);
 
+    var lvl = Match3Levels.getLevel(currentLevelId);
+    ctx.font = 'bold 14px "Outfit", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#A855F7';
+    ctx.fillText(lvl.name, canvas.width / 2, 28);
+
     ctx.font = 'bold 22px "Outfit", "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#FF6B81';
     ctx.fillText('\u2728 ' + score, 16, 58);
+
+    ctx.font = '13px "Outfit", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFA502';
+    ctx.fillText('Target: ' + targetScore, canvas.width / 2, 58);
 
     ctx.textAlign = 'right';
     var isUrgent = timeLeft <= 10;
@@ -1104,18 +1139,9 @@ const Match3 = (function () {
     ctx.roundRect(barX, barY, barW, barH, 4);
     ctx.fill();
 
-    var barColor;
-    if (progress > 0.5) barColor = '#4CAF50';
-    else if (progress > 0.25) barColor = '#FF9800';
-    else barColor = '#F44336';
-
+    var barColor = isUrgent ? '#FF3D00' : '#3B82F6';
     if (progress > 0.001) {
-      var alpha = 1;
-      if (isUrgent) {
-        alpha = 0.5 + 0.5 * Math.sin(Date.now() / 100);
-      }
       ctx.save();
-      ctx.globalAlpha = alpha;
       var barGrad = ctx.createLinearGradient(barX, barY, barX + barW * progress, barY);
       barGrad.addColorStop(0, barColor);
       barGrad.addColorStop(1, barColor + 'AA');
@@ -1139,6 +1165,155 @@ const Match3 = (function () {
       ctx.fillText('\u2B50 ' + combo + ' COMBO!', 0, 0);
       ctx.restore();
     }
+  }
+
+  function drawClearScreen() {
+    ctx.fillStyle = 'rgba(10, 8, 20, 0.9)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var cx = canvas.width / 2;
+    var cy = canvas.height / 2;
+    var hasNext = Match3Levels.getNextLevelId(currentLevelId) !== null;
+    var cardH = hasNext ? 340 : 280;
+
+    var animatedScore = Math.min(score, Math.floor(score * (gameOverTime / 1.5)));
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(255, 215, 0, 0.25)';
+    ctx.shadowBlur = 30;
+    drawRoundRect(cx - 140, cy - 140 - (hasNext ? 30 : 0), 280, cardH, 24, 'rgba(25, 18, 48, 0.85)', 'rgba(255, 255, 255, 0.08)', 1.5);
+    ctx.restore();
+
+    ctx.font = 'bold 28px "Outfit", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFA502';
+    var textY = cy - 84 - (hasNext ? 30 : 0);
+    ctx.fillText('✨ Stage Clear! ✨', cx, textY);
+
+    ctx.font = 'bold 36px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u2728 ' + animatedScore, cx, textY + 54);
+
+    ctx.font = '13px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#90A4AE';
+    ctx.fillText('Target Score: ' + targetScore, cx, textY + 98);
+
+    var btnW = 200, btnH = 44;
+    var btnY = cy + 46 - (hasNext ? 30 : 0);
+    var btn2Y = btnY + btnH + 12;
+    var btn3Y = btn2Y + btnH + 12;
+
+    if (hasNext) {
+      var isNextHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btnY && mouseY <= btnY + btnH);
+      ctx.save();
+      if (isNextHovered) {
+        ctx.shadowColor = 'rgba(255, 165, 0, 0.4)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 2;
+      }
+      var nextBg = isNextHovered ? '#FFB74D' : '#FFA502';
+      var nextBorder = isNextHovered ? '#FFFFFF' : '#EF6C00';
+      drawRoundRect(cx - btnW / 2, btnY, btnW, btnH, 12, nextBg, nextBorder, 1.5);
+      ctx.restore();
+      ctx.font = 'bold 16px "Outfit", "Segoe UI", sans-serif';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('\u25B6 Next Stage', cx, btnY + btnH / 2);
+
+      var isReplayHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btn2Y && mouseY <= btn2Y + btnH);
+      ctx.save();
+      var replayBg = isReplayHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+      var replayBorder = isReplayHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)';
+      drawRoundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12, replayBg, replayBorder, 1.5);
+      ctx.restore();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('\u21BA Replay', cx, btn2Y + btnH / 2);
+
+      var isMenuHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btn3Y && mouseY <= btn3Y + btnH);
+      ctx.save();
+      var menuBg = isMenuHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+      var menuBorder = isMenuHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)';
+      drawRoundRect(cx - btnW / 2, btn3Y, btnW, btnH, 12, menuBg, menuBorder, 1.5);
+      ctx.restore();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('\u{1F3E0} Menu', cx, btn3Y + btnH / 2);
+    } else {
+      var isReplayHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btnY && mouseY <= btnY + btnH);
+      ctx.save();
+      var replayBg = isReplayHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+      var replayBorder = isReplayHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)';
+      drawRoundRect(cx - btnW / 2, btnY, btnW, btnH, 12, replayBg, replayBorder, 1.5);
+      ctx.restore();
+      ctx.font = 'bold 16px "Outfit", "Segoe UI", sans-serif';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('\u21BA Replay', cx, btnY + btnH / 2);
+
+      var isMenuHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btn2Y && mouseY <= btn2Y + btnH);
+      ctx.save();
+      var menuBg = isMenuHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+      var menuBorder = isMenuHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)';
+      drawRoundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12, menuBg, menuBorder, 1.5);
+      ctx.restore();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
+    }
+  }
+
+  function drawFailedScreen() {
+    ctx.fillStyle = 'rgba(10, 8, 20, 0.9)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var cx = canvas.width / 2;
+    var cy = canvas.height / 2;
+
+    var animatedScore = Math.min(score, Math.floor(score * (gameOverTime / 1.5)));
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(239, 83, 80, 0.25)';
+    ctx.shadowBlur = 30;
+    drawRoundRect(cx - 140, cy - 140, 280, 280, 24, 'rgba(25, 18, 48, 0.85)', 'rgba(255, 255, 255, 0.08)', 1.5);
+    ctx.restore();
+
+    ctx.font = 'bold 26px "Outfit", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#EF5350';
+    ctx.fillText('💔 Stage Failed...', cx, cy - 84);
+
+    ctx.font = 'bold 36px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u2728 ' + animatedScore, cx, cy - 30);
+
+    ctx.font = '13px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#90A4AE';
+    ctx.fillText('Target Score: ' + targetScore, cx, cy + 15);
+
+    var btnW = 200, btnH = 44, btnY = cy + 46;
+    var btn2Y = btnY + btnH + 12;
+
+    var isRetryHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btnY && mouseY <= btnY + btnH);
+    ctx.save();
+    if (isRetryHovered) {
+      ctx.shadowColor = 'rgba(239, 83, 80, 0.4)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 2;
+    }
+    var retryBg = isRetryHovered ? '#EF9A9A' : '#EF5350';
+    var retryBorder = isRetryHovered ? '#FFFFFF' : '#C62828';
+    drawRoundRect(cx - btnW / 2, btnY, btnW, btnH, 12, retryBg, retryBorder, 1.5);
+    ctx.restore();
+    ctx.font = 'bold 16px "Outfit", "Segoe UI", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u25B6 Retry', cx, btnY + btnH / 2);
+
+    var isMenuHovered = (mouseX >= cx - btnW / 2 && mouseX <= cx + btnW / 2 && mouseY >= btn2Y && mouseY <= btn2Y + btnH);
+    ctx.save();
+    var menuBg = isMenuHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+    var menuBorder = isMenuHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)';
+    drawRoundRect(cx - btnW / 2, btn2Y, btnW, btnH, 12, menuBg, menuBorder, 1.5);
+    ctx.restore();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('\u{1F3E0} Menu', cx, btn2Y + btnH / 2);
   }
 
   function drawGameOver() {
@@ -1221,19 +1396,60 @@ const Match3 = (function () {
 
   function onDown(e) {
     var p = handlePointer(e.touches ? e.touches[0] : e);
-    if (animState === 'gameover') {
+    if (animState === 'clear' || animState === 'failed' || animState === 'gameover') {
       var cx = canvas.width / 2;
       var cy = canvas.height / 2;
-      var btnW = 200, btnH = 44, btnY = cy + 46;
-      var btn2Y = btnY + btnH + 12;
-      if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
-        if (p.y >= btnY && p.y <= btnY + btnH) {
-          resetGame();
-          return;
+      var btnW = 200, btnH = 44;
+      if (animState === 'clear') {
+        var hasNext = Match3Levels.getNextLevelId(currentLevelId) !== null;
+        var btnY = cy + 46 - (hasNext ? 30 : 0);
+        var btn2Y = btnY + btnH + 12;
+        var btn3Y = btn2Y + btnH + 12;
+        if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
+          if (hasNext) {
+            if (p.y >= btnY && p.y <= btnY + btnH) {
+              currentLevelId = Match3Levels.getNextLevelId(currentLevelId);
+              resetGame();
+              Sound.click();
+              return;
+            }
+            if (p.y >= btn2Y && p.y <= btn2Y + btnH) {
+              resetGame();
+              Sound.click();
+              return;
+            }
+            if (p.y >= btn3Y && p.y <= btn3Y + btnH) {
+              onBack();
+              Sound.click();
+              return;
+            }
+          } else {
+            if (p.y >= btnY && p.y <= btnY + btnH) {
+              resetGame();
+              Sound.click();
+              return;
+            }
+            if (p.y >= btn2Y && p.y <= btn2Y + btnH) {
+              onBack();
+              Sound.click();
+              return;
+            }
+          }
         }
-        if (p.y >= btn2Y && p.y <= btn2Y + btnH) {
-          onBack();
-          return;
+      } else {
+        var btnY = cy + 46;
+        var btn2Y = btnY + btnH + 12;
+        if (p.x >= cx - btnW / 2 && p.x <= cx + btnW / 2) {
+          if (p.y >= btnY && p.y <= btnY + btnH) {
+            resetGame();
+            Sound.click();
+            return;
+          }
+          if (p.y >= btn2Y && p.y <= btn2Y + btnH) {
+            onBack();
+            Sound.click();
+            return;
+          }
         }
       }
       return;
