@@ -21,6 +21,7 @@ const Match3 = (function () {
   var gemImages = [];
   var gemLoadedCount = 0;
   var gemsLoaded = false;
+  var numColors = 6;
 
   var GEM_NORMAL = 0;
   var GEM_LINE_H = 1;
@@ -37,6 +38,10 @@ const Match3 = (function () {
     BOARD_H = ROWS * GEM + (ROWS - 1) * GAP;
     GRID_X = Math.floor((canvas.width - BOARD_W) / 2);
     GRID_Y = 100;
+
+    if (difficulty === 'easy') numColors = 4;
+    else if (difficulty === 'hard') numColors = 6;
+    else numColors = 5;
 
     gemColors = [
       { main: '#FF4757', light: '#FF6B81', dark: '#B71540' },
@@ -86,7 +91,7 @@ const Match3 = (function () {
       specialGems[r] = [];
       for (var c = 0; c < COLS; c++) {
         var t;
-        do { t = Math.floor(Math.random() * 6); }
+        do { t = Math.floor(Math.random() * numColors); }
         while (wouldMatch(r, c, t));
         grid[r][c] = t;
         specialGems[r][c] = GEM_NORMAL;
@@ -94,9 +99,7 @@ const Match3 = (function () {
     }
     score = 0;
     combo = 0;
-    if (difficulty === 'easy') timeLeft = 90;
-    else if (difficulty === 'hard') timeLeft = 45;
-    else timeLeft = 60;
+    timeLeft = 60;
     maxTime = timeLeft;
     selected = null;
     animState = 'idle';
@@ -332,7 +335,7 @@ const Match3 = (function () {
         }
       }
       while (writeRow >= 0) {
-        grid[writeRow][c] = Math.floor(Math.random() * 6);
+        grid[writeRow][c] = Math.floor(Math.random() * numColors);
         specialGems[writeRow][c] = GEM_NORMAL;
         writeRow--;
       }
@@ -489,7 +492,7 @@ const Match3 = (function () {
       for (var r4 = 0; r4 < ROWS; r4++) {
         for (var c4 = 0; c4 < COLS; c4++) {
           var t;
-          do { t = Math.floor(Math.random() * 6); }
+          do { t = Math.floor(Math.random() * numColors); }
           while (wouldMatch(r4, c4, t));
           grid[r4][c4] = t;
         }
