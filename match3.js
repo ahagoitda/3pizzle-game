@@ -28,6 +28,8 @@ const Match3 = (function () {
   var itemHammerCount = 1;
   var itemShuffleCount = 1;
   var activeItem = null;
+  var linkedPath = [];
+  var isLinking = false;
   var targetScore = 1000;
   var currentLevelId = '1-1';
 
@@ -133,6 +135,8 @@ const Match3 = (function () {
     score = 0;
     combo = 0;
     selected = null;
+    linkedPath = [];
+    isLinking = false;
     animState = 'idle';
     animTimer = 0;
     matchCells = [];
@@ -643,9 +647,16 @@ const Match3 = (function () {
     Sound.invalid();
   }
 
-  function beginRemoval(cells) {
-    var info = classifyMatches(cells);
-    var specialList = info.specials;
+  function beginRemoval(cells, isLinkClear, manualSpecial) {
+    var specialList = [];
+    if (isLinkClear) {
+      if (manualSpecial) {
+        specialList.push(manualSpecial);
+      }
+    } else {
+      var info = classifyMatches(cells);
+      specialList = info.specials;
+    }
 
     var allToRemove = {};
     for (var i = 0; i < cells.length; i++) {
@@ -741,8 +752,19 @@ const Match3 = (function () {
     Effects.shake(combo * 1.5);
 
     for (var j = 0; j < uniqueCells.length; j++) {
-      grid[uniqueCells[j].r][uniqueCells[j].c] = -1;
-      specialGems[uniqueCells[j].r][uniqueCells[j].c] = GEM_NORMAL;
+      var cr = uniqueCells[j].r;
+      var cc = uniqueCells[j].c;
+      var isSpec = false;
+      for (var s2 = 0; s2 < specialList.length; s2++) {
+        if (specialList[s2].r === cr && specialList[s2].c === cc) {
+          isSpec = true;
+          break;
+        }
+      }
+      if (!isSpec) {
+        grid[cr][cc] = -1;
+        specialGems[cr][cc] = GEM_NORMAL;
+      }
     }
   }
 
@@ -1187,7 +1209,7 @@ const Match3 = (function () {
       }
     }
 
-    if (selected && animState === 'idle') {
+    if (selected && animState === 'idle' && !isLinking) {
       var sc = cellCenter(selected.r, selected.c);
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 3;
@@ -1197,6 +1219,60 @@ const Match3 = (function () {
       ctx.roundRect(sc.x - GEM / 2, sc.y - GEM / 2, GEM, GEM, 10);
       ctx.stroke();
       ctx.shadowBlur = 0;
+    }
+
+    // 한붓그리기 경로 렌더링
+    if (isLinking && linkedPath.length > 0) {
+      var gemType = grid[linkedPath[0].r][linkedPath[0].c];
+      var colorObj = gemColors[gemType] || gemColors[0];
+      var lineColor = colorObj.light || '#FFFFFF';
+
+      // 1. 네온 연결선 그리기
+      ctx.save();
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = lineColor;
+      ctx.shadowBlur = 15;
+      
+      ctx.beginPath();
+      var startPt = cellCenter(linkedPath[0].r, linkedPath[0].c);
+      ctx.moveTo(startPt.x, startPt.y);
+      for (var i = 1; i < linkedPath.length; i++) {
+        var pt = cellCenter(linkedPath[i].r, linkedPath[i].c);
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. 연결 노드 하이라이트 및 인덱스 표시
+      for (var i = 0; i < linkedPath.length; i++) {
+        var pt = cellCenter(linkedPath[i].r, linkedPath[i].c);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = lineColor;
+        ctx.shadowBlur = 10;
+        
+        ctx.beginPath();
+        var pulseRad = GEM / 2.2 + 2 * Math.sin(Date.now() / 100 + i);
+        ctx.arc(pt.x, pt.y, pulseRad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        ctx.save();
+        ctx.font = 'bold 13px "Outfit", sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 4;
+        ctx.fillText(i + 1, pt.x, pt.y);
+        ctx.restore();
+      }
     }
   }
 
@@ -1846,6 +1922,8 @@ const Match3 = (function () {
     pointerDown = true;
     hintTimer = 0;
     hintCells = null;
+    linkedPath = [cell];
+    isLinking = true;
   }
 
   function useHammer(r, c) {
@@ -1869,6 +1947,29 @@ const Match3 = (function () {
     pointerDown = false;
     if (animState !== 'idle') return;
     if (!selected) return;
+
+    if (isLinking) {
+      if (linkedPath.length >= 3) {
+        var lastCell = linkedPath[linkedPath.length - 1];
+        var manualSpecial = null;
+        if (linkedPath.length === 4) {
+          manualSpecial = { r: lastCell.r, c: lastCell.c, type: Math.random() < 0.5 ? GEM_LINE_H : GEM_LINE_V };
+        } else if (linkedPath.length === 5) {
+          manualSpecial = { r: lastCell.r, c: lastCell.c, type: GEM_BOMB };
+        } else if (linkedPath.length >= 6) {
+          manualSpecial = { r: lastCell.r, c: lastCell.c, type: GEM_RAINBOW };
+        }
+        beginRemoval(linkedPath, true, manualSpecial);
+        linkedPath = [];
+        isLinking = false;
+        selected = null;
+        swipeStart = null;
+        pointerCell = null;
+        return;
+      }
+      linkedPath = [];
+      isLinking = false;
+    }
 
     if (swipeStart && swipeStart.cell) {
       var endP = handlePointer(e.changedTouches ? e.changedTouches[0] : e);
@@ -1929,7 +2030,62 @@ const Match3 = (function () {
     mouseX = p.x;
     mouseY = p.y;
     if (!pointerDown || !selected) return;
-    pointerCell = getCell(p.x, p.y);
+
+    var cell = getCell(p.x, p.y);
+    if (!cell) return;
+
+    if (isLinking) {
+      var last = linkedPath[linkedPath.length - 1];
+      if (cell.r === last.r && cell.c === last.c) {
+        return;
+      }
+
+      var dr = Math.abs(cell.r - last.r);
+      var dc = Math.abs(cell.c - last.c);
+      var is8Adjacent = (dr <= 1 && dc <= 1 && (dr !== 0 || dc !== 0));
+
+      if (is8Adjacent) {
+        var startColor = grid[linkedPath[0].r][linkedPath[0].c];
+        var targetColor = grid[cell.r][cell.c];
+
+        if (linkedPath.length === 1) {
+          if (startColor !== targetColor) {
+            isLinking = false;
+            pointerCell = cell;
+            return;
+          }
+        }
+
+        if (startColor === targetColor) {
+          if (lockedGems[cell.r][cell.c]) {
+            return;
+          }
+
+          if (linkedPath.length > 1 && cell.r === linkedPath[linkedPath.length - 2].r && cell.c === linkedPath[linkedPath.length - 2].c) {
+            linkedPath.pop();
+            Sound.click();
+            hintTimer = 0;
+            return;
+          }
+
+          var alreadyInPath = false;
+          for (var i = 0; i < linkedPath.length; i++) {
+            if (linkedPath[i].r === cell.r && linkedPath[i].c === cell.c) {
+              alreadyInPath = true;
+              break;
+            }
+          }
+
+          if (!alreadyInPath) {
+            linkedPath.push(cell);
+            Sound.linkNode(linkedPath.length - 1);
+            hintTimer = 0;
+          }
+        }
+      }
+    } else {
+      pointerCell = cell;
+    }
   }
 
   function onMouseLeave() {

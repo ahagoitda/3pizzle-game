@@ -108,6 +108,14 @@ var Sound = (function () {
     play(784, 0.12, 'sine', 0.10, 0.07);
   }
 
+  // 한붓그리기 연결음 — 연결 노드 인덱스에 따라 음계 상승
+  function linkNode(index) {
+    var baseFreqs = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99]; // C major scale
+    var f = baseFreqs[Math.min(index - 1, baseFreqs.length - 1)];
+    play(f, 0.08, 'triangle', 0.10, 0);
+    play(f * 1.5, 0.10, 'sine', 0.06, 0.02);
+  }
+
   // 콤보 — 콤보 수에 따라 화음 올라감
   function combo(n) {
     var baseFreqs = [392, 440, 494, 523, 587, 659, 698, 784];
@@ -245,6 +253,7 @@ var Sound = (function () {
   return {
     match: match,
     combo: combo,
+    linkNode: linkNode,
     place: place,
     clear: clear,
     invalid: invalid,
