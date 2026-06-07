@@ -72,7 +72,7 @@ var Game = (function () {
 
   function loop(ts) {
     var dt = (ts - lastTime) / 1000;
-    if (dt > 0.1) dt = 0.016;
+    if (isNaN(dt) || dt > 0.1 || dt < 0) dt = 0.016;
     lastTime = ts;
 
     update(dt);

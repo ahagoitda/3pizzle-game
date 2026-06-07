@@ -397,97 +397,133 @@ const Match3 = (function () {
   }
 
   function classifyMatches(matched) {
-    var hGroups = {};
-    var vGroups = {};
     var seen = {};
     for (var i = 0; i < matched.length; i++) {
       var key = matched[i].r + ',' + matched[i].c;
-      seen[key] = matched[i];
+      seen[key] = true;
     }
 
-    for (var r2 = 0; r2 < ROWS; r2++) {
-      for (var c2 = 0; c2 < COLS; c2++) {
-        var k2 = r2 + ',' + c2;
-        if (!seen[k2]) continue;
-        var runEnd = c2;
-        while (runEnd + 1 < COLS && seen[r2 + ',' + (runEnd + 1)]) runEnd++;
-        var len = runEnd - c2 + 1;
+    var hMatches = [];
+    var vMatches = [];
+
+    // Find contiguous horizontal matches
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        if (!seen[r + ',' + c]) continue;
+        var runEnd = c;
+        while (runEnd + 1 < COLS && seen[r + ',' + (runEnd + 1)]) runEnd++;
+        var len = runEnd - c + 1;
         if (len >= 3) {
-          for (var cc = c2; cc <= runEnd; cc++) {
-            if (!hGroups[r2]) hGroups[r2] = [];
-            hGroups[r2].push(cc);
+          var match = [];
+          for (var cc = c; cc <= runEnd; cc++) {
+            match.push({ r: r, c: cc });
           }
+          hMatches.push(match);
         }
-        c2 = Math.max(c2, runEnd - 1);
+        c = Math.max(c, runEnd);
       }
     }
-    for (var c3 = 0; c3 < COLS; c3++) {
-      for (var r3 = 0; r3 < ROWS; r3++) {
-        var k3 = r3 + ',' + c3;
-        if (!seen[k3]) continue;
-        var runEnd2 = r3;
-        while (runEnd2 + 1 < ROWS && seen[(runEnd2 + 1) + ',' + c3]) runEnd2++;
-        if (runEnd2 - r3 + 1 >= 3) {
-          if (!vGroups[c3]) vGroups[c3] = [];
-          for (var rr = r3; rr <= runEnd2; rr++) vGroups[c3].push(rr);
+
+    // Find contiguous vertical matches
+    for (var c = 0; c < COLS; c++) {
+      for (var r = 0; r < ROWS; r++) {
+        if (!seen[r + ',' + c]) continue;
+        var runEnd = r;
+        while (runEnd + 1 < ROWS && seen[(runEnd + 1) + ',' + c]) runEnd++;
+        var len = runEnd - r + 1;
+        if (len >= 3) {
+          var match = [];
+          for (var rr = r; rr <= runEnd; rr++) {
+            match.push({ r: rr, c: c });
+          }
+          vMatches.push(match);
         }
+        r = Math.max(r, runEnd);
+      }
+    }
+
+    var hCellMap = {};
+    for (var i = 0; i < hMatches.length; i++) {
+      for (var j = 0; j < hMatches[i].length; j++) {
+        var key = hMatches[i][j].r + ',' + hMatches[i][j].c;
+        hCellMap[key] = true;
+      }
+    }
+
+    var vCellMap = {};
+    for (var i = 0; i < vMatches.length; i++) {
+      for (var j = 0; j < vMatches[i].length; j++) {
+        var key = vMatches[i][j].r + ',' + vMatches[i][j].c;
+        vCellMap[key] = true;
+      }
+    }
+
+    var bombCells = {};
+    for (var key in hCellMap) {
+      if (vCellMap[key]) {
+        bombCells[key] = true;
       }
     }
 
     var specials = [];
     var cellKeys = {};
 
-    for (var rk in hGroups) {
-      var row = parseInt(rk);
-      var cols = hGroups[rk];
-      if (cols.length === 4) {
-        var midC = cols[1];
-        specials.push({ r: row, c: midC, type: GEM_LINE_H });
-        cellKeys[row + ',' + midC] = true;
-      } else if (cols.length >= 5) {
-        var midC2 = cols[Math.floor(cols.length / 2)];
-        specials.push({ r: row, c: midC2, type: GEM_RAINBOW });
-        cellKeys[row + ',' + midC2] = true;
-      }
+    function addSpecial(r, c, type) {
+      var key = r + ',' + c;
+      if (cellKeys[key]) return;
+      specials.push({ r: r, c: c, type: type });
+      cellKeys[key] = true;
     }
-    for (var ck in vGroups) {
-      var col = parseInt(ck);
-      var ros = vGroups[ck];
-      if (ros.length === 4) {
-        var midR = ros[1];
-        var ck2 = midR + ',' + col;
-        if (!cellKeys[ck2]) {
-          specials.push({ r: midR, c: col, type: GEM_LINE_V });
-          cellKeys[ck2] = true;
+
+    // 1. Add Bombs for overlaps
+    for (var key in bombCells) {
+      var parts = key.split(',');
+      var r = parseInt(parts[0], 10);
+      var c = parseInt(parts[1], 10);
+      addSpecial(r, c, GEM_BOMB);
+    }
+
+    // 2. Add Line/Rainbow specials for horizontal matches
+    for (var i = 0; i < hMatches.length; i++) {
+      var match = hMatches[i];
+      var hasBomb = false;
+      for (var j = 0; j < match.length; j++) {
+        var key = match[j].r + ',' + match[j].c;
+        if (bombCells[key]) {
+          hasBomb = true;
+          break;
         }
-      } else if (ros.length >= 5) {
-        var midR2 = ros[Math.floor(ros.length / 2)];
-        var ck3 = midR2 + ',' + col;
-        if (!cellKeys[ck3]) {
-          specials.push({ r: midR2, c: col, type: GEM_RAINBOW });
-          cellKeys[ck3] = true;
-        }
+      }
+      if (hasBomb) continue;
+
+      if (match.length === 4) {
+        var target = match[1];
+        addSpecial(target.r, target.c, GEM_LINE_H);
+      } else if (match.length >= 5) {
+        var target = match[Math.floor(match.length / 2)];
+        addSpecial(target.r, target.c, GEM_RAINBOW);
       }
     }
 
-    var overlapCounts = {};
-    for (var m = 0; m < matched.length; m++) {
-      var mk = matched[m].r + ',' + matched[m].c;
-      var inH = hGroups[matched[m].r] && hGroups[matched[m].r].indexOf(matched[m].c) >= 0;
-      var inV = vGroups[matched[m].c] && vGroups[matched[m].c].indexOf(matched[m].r) >= 0;
-      if (inH && inV) {
-        overlapCounts[mk] = true;
+    // 3. Add Line/Rainbow specials for vertical matches
+    for (var i = 0; i < vMatches.length; i++) {
+      var match = vMatches[i];
+      var hasBomb = false;
+      for (var j = 0; j < match.length; j++) {
+        var key = match[j].r + ',' + match[j].c;
+        if (bombCells[key]) {
+          hasBomb = true;
+          break;
+        }
       }
-    }
-    for (var ok in overlapCounts) {
-      var parts = ok.split(',');
-      var or2 = parseInt(parts[0]), oc2 = parseInt(parts[1]);
-      var alreadySpecial = false;
-      for (var si = 0; si < specials.length; si++) {
-        if (specials[si].r === or2 && specials[si].c === oc2) { alreadySpecial = true; break; }
-      }
-      if (!alreadySpecial) {
-        specials.push({ r: or2, c: oc2, type: GEM_BOMB });
+      if (hasBomb) continue;
+
+      if (match.length === 4) {
+        var target = match[1];
+        addSpecial(target.r, target.c, GEM_LINE_V);
+      } else if (match.length >= 5) {
+        var target = match[Math.floor(match.length / 2)];
+        addSpecial(target.r, target.c, GEM_RAINBOW);
       }
     }
 
