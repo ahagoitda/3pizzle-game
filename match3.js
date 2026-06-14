@@ -3,7 +3,8 @@ const Match3 = (function () {
 
   var COLS = 8, ROWS = 8, GEM = 54, GAP = 3;
   var BOARD_W, BOARD_H, GRID_X, GRID_Y;
-  var canvas, ctx, onBack;
+  var FEVER_Y, ITEM_Y, ITEM_W, ITEM_H;
+  var canvas, ctx, onBack, onNextLevel;
   var grid, score, combo, timeLeft, lockedGems;
   var selected, animState, animTimer, matchCells, swapData, removalData;
   var pointerDown, pointerCell, swipeStart;
@@ -32,6 +33,7 @@ const Match3 = (function () {
   var isLinking = false;
   var targetScore = 1000;
   var currentLevelId = '1-1';
+  var autoNextTimer = 0;
 
   var GEM_NORMAL = 0;
   var GEM_LINE_H = 1;
@@ -39,10 +41,11 @@ const Match3 = (function () {
   var GEM_BOMB = 3;
   var GEM_RAINBOW = 4;
 
-  function init(cnv, ctxt, backCb, diff, lvlId) {
+  function init(cnv, ctxt, backCb, diff, lvlId, nextCb) {
     canvas = cnv;
     ctx = ctxt;
     onBack = backCb;
+    onNextLevel = nextCb || null;
     difficulty = diff || 'normal';
     currentLevelId = lvlId || '1-1';
 
@@ -52,11 +55,7 @@ const Match3 = (function () {
     maxTime = timeLeft;
     numColors = lvl.colors;
 
-    GEM = Math.floor((canvas.width - 32 - (COLS - 1) * GAP) / COLS);
-    BOARD_W = COLS * GEM + (COLS - 1) * GAP;
-    BOARD_H = ROWS * GEM + (ROWS - 1) * GAP;
-    GRID_X = Math.floor((canvas.width - BOARD_W) / 2);
-    GRID_Y = 100;
+    layoutBoard();
 
     gemColors = [
       { main: '#FF4757', light: '#FF6B81', dark: '#B71540' },
@@ -71,6 +70,27 @@ const Match3 = (function () {
 
     resetGame();
     bindInput();
+  }
+
+  function layoutBoard() {
+    var headerH = 92;
+    var sidePad = canvas.width < 420 ? 24 : 32;
+    var bottomReserve = canvas.height < 700 ? 104 : 122;
+    var maxGemW = Math.floor((canvas.width - sidePad - (COLS - 1) * GAP) / COLS);
+    var maxGemH = Math.floor((canvas.height - headerH - bottomReserve - (ROWS - 1) * GAP) / ROWS);
+    GEM = Math.max(34, Math.min(58, maxGemW, maxGemH));
+    BOARD_W = COLS * GEM + (COLS - 1) * GAP;
+    BOARD_H = ROWS * GEM + (ROWS - 1) * GAP;
+    GRID_X = Math.floor((canvas.width - BOARD_W) / 2);
+
+    var boardAreaH = canvas.height - headerH - bottomReserve;
+    GRID_Y = Math.floor(headerH + Math.max(12, (boardAreaH - BOARD_H) * 0.25));
+    GRID_Y = Math.max(headerH + 8, GRID_Y);
+
+    FEVER_Y = Math.min(canvas.height - 70, GRID_Y + BOARD_H + 28);
+    ITEM_Y = FEVER_Y + 30;
+    ITEM_W = canvas.width < 380 ? 92 : 104;
+    ITEM_H = canvas.height < 700 ? 34 : 38;
   }
 
   function preloadImages() {
@@ -156,7 +176,23 @@ const Match3 = (function () {
     itemHammerCount = 1;
     itemShuffleCount = 1;
     activeItem = null;
+    autoNextTimer = 0;
     Effects.reset();
+  }
+
+  function triggerStageClear() {
+    if (animState === 'clear' || animState === 'failed' || animState === 'gameover') return;
+    var nextId = Match3Levels.getNextLevelId(currentLevelId);
+    gameOverTime = 0;
+    animState = 'clear';
+    autoNextTimer = nextId ? 0.65 : 0;
+    if (nextId) {
+      Match3Levels.setUnlockedLevel(nextId);
+    }
+    Sound.win();
+    Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FFD700', {
+      speedMin: 80, speedMax: 250, lifeMin: 0.5, lifeMax: 1.5, sizeMin: 3, sizeMax: 8
+    });
   }
 
   function wouldMatch(r, c, type) {
@@ -802,6 +838,10 @@ const Match3 = (function () {
         specialGems[cr][cc] = GEM_NORMAL;
       }
     }
+
+    if (score >= targetScore) {
+      triggerStageClear();
+    }
   }
 
   function hasValidMoves() {
@@ -917,6 +957,16 @@ const Match3 = (function () {
     if (animState === 'clear' || animState === 'failed' || animState === 'gameover') {
       gameOverTime += dt;
       Effects.update(dt);
+      if (animState === 'clear' && autoNextTimer > 0) {
+        autoNextTimer -= dt;
+        if (autoNextTimer <= 0) {
+          autoNextTimer = 0;
+          var nextId = Match3Levels.getNextLevelId(currentLevelId);
+          if (nextId && onNextLevel) {
+            onNextLevel(nextId);
+          }
+        }
+      }
       return;
     }
 
@@ -926,12 +976,7 @@ const Match3 = (function () {
         timeLeft = 0;
         gameOverTime = 0;
         if (score >= targetScore) {
-          animState = 'clear';
-          Match3Levels.setUnlockedLevel(Match3Levels.getNextLevelId(currentLevelId));
-          Sound.win();
-          Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FFD700', {
-            speedMin: 80, speedMax: 250, lifeMin: 0.5, lifeMax: 1.5, sizeMin: 3, sizeMax: 8
-          });
+          triggerStageClear();
         } else {
           animState = 'failed';
           Sound.gameover();
@@ -1068,9 +1113,9 @@ const Match3 = (function () {
     var cx = canvas.width / 2;
     
     // 1. Fever Gauge
-    var fX = 30;
-    var fY = 566;
-    var fW = canvas.width - 60;
+    var fX = canvas.width < 420 ? 24 : 30;
+    var fY = FEVER_Y;
+    var fW = canvas.width - fX * 2;
     var fH = 10;
     
     // Background bar
@@ -1119,12 +1164,12 @@ const Match3 = (function () {
     }
 
     // 2. Items Slot
-    var itemY = 596;
-    var itemW = 100;
-    var itemH = 38;
+    var itemY = ITEM_Y;
+    var itemW = ITEM_W;
+    var itemH = ITEM_H;
     
     // Item 1: Hammer
-    var hX = cx - 110;
+    var hX = cx - itemW - 14;
     var isHamHovered = (mouseX >= hX && mouseX <= hX + itemW && mouseY >= itemY && mouseY <= itemY + itemH);
     var hamColor = (activeItem === 'hammer') ? '#FFD700' : (itemHammerCount > 0 ? (isHamHovered ? '#FFFFFF' : '#90A4AE') : '#546E7A');
     var hamBg = (activeItem === 'hammer') ? 'rgba(255, 215, 0, 0.15)' : 'rgba(255, 255, 255, 0.04)';
@@ -1137,7 +1182,7 @@ const Match3 = (function () {
     ctx.fillText('🔨 Hammer ' + itemHammerCount + '/1', hX + itemW / 2, itemY + itemH / 2);
 
     // Item 2: Shuffle
-    var sX = cx + 10;
+    var sX = cx + 14;
     var isShufHovered = (mouseX >= sX && mouseX <= sX + itemW && mouseY >= itemY && mouseY <= itemY + itemH);
     var shufColor = (itemShuffleCount > 0 ? (isShufHovered ? '#FFFFFF' : '#90A4AE') : '#546E7A');
     var shufBg = 'rgba(255, 255, 255, 0.04)';
@@ -1908,14 +1953,14 @@ const Match3 = (function () {
       return;
     }
 
-    // Check if clicked items slot (Y = 596, H = 38)
+    // Check if clicked items slot
     var cx = canvas.width / 2;
-    var itemY = 596;
-    var itemW = 100;
-    var itemH = 38;
+    var itemY = ITEM_Y;
+    var itemW = ITEM_W;
+    var itemH = ITEM_H;
     if (p.y >= itemY && p.y <= itemY + itemH && animState === 'idle') {
-      var hX = cx - 110;
-      var sX = cx + 10;
+      var hX = cx - itemW - 14;
+      var sX = cx + 14;
       if (p.x >= hX && p.x <= hX + itemW) {
         if (itemHammerCount > 0) {
           activeItem = (activeItem === 'hammer') ? null : 'hammer';

@@ -65,9 +65,20 @@ var Game = (function () {
   }
 
   function setupCanvas() {
-    var size = Math.min(window.innerWidth, window.innerHeight, 520);
-    canvas.width = size;
-    canvas.height = Math.floor(size * 1.6);
+    var viewport = window.visualViewport || null;
+    var viewW = Math.floor(viewport ? viewport.width : window.innerWidth);
+    var viewH = Math.floor(viewport ? viewport.height : window.innerHeight);
+    var width = Math.max(320, Math.min(viewW, 520));
+    var height = Math.max(560, Math.min(viewH, 900));
+
+    if (viewW <= 600) {
+      width = Math.max(320, viewW);
+      height = Math.max(560, viewH);
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    menuScrollY = Math.max(0, Math.min(maxScrollY, menuScrollY));
   }
 
   function loop(ts) {
@@ -199,8 +210,12 @@ var Game = (function () {
     var unlockedLvlId = Match3Levels.getUnlockedLevel();
     var unlockedIdx = Match3Levels.getLevelIndex(unlockedLvlId);
 
-    // Calculate maxScrollY dynamically based on total scrollable height (approx 930px)
-    maxScrollY = Math.max(0, 930 - ch);
+    var hasInstallBanner = deferredPrompt && !installDismissed;
+    var stickyInstallH = hasInstallBanner ? 64 : 0;
+
+    // Calculate maxScrollY dynamically based on compact menu content height.
+    maxScrollY = Math.max(0, (hasInstallBanner ? 760 : 700) - (ch - stickyInstallH));
+    menuScrollY = Math.max(0, Math.min(maxScrollY, menuScrollY));
 
     var pointerY_scrolled = mouseY + menuScrollY;
 
@@ -307,6 +322,26 @@ var Game = (function () {
       ctx.textAlign = 'center';
       ctx.fillStyle = textCol;
       ctx.fillText(isUnlocked ? lvl.id : '🔒', cx_node, cy1);
+    }
+
+    if (unlockedIdx === 0 && playCount === 0) {
+      var firstNodeX = startX + circleW / 2;
+      var hintPulse = 0.55 + 0.45 * Math.sin(menuPulse * 5);
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 12px "Outfit", "Segoe UI", sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.85 + 0.15 * hintPulse) + ')';
+      ctx.shadowColor = '#FF6B81';
+      ctx.shadowBlur = 10;
+      ctx.fillText('Tap 1-1 to start', firstNodeX + 112, cy1);
+      ctx.strokeStyle = 'rgba(255, 255, 255, ' + hintPulse + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(firstNodeX + 48, cy1);
+      ctx.lineTo(firstNodeX + 19, cy1);
+      ctx.stroke();
+      ctx.restore();
     }
 
     // 2. World 2 Card
@@ -757,12 +792,16 @@ var Game = (function () {
     var recordsY = diffCY + 32 + 20;
     drawScores(cx, recordsY);
 
-    if (deferredPrompt && !installDismissed) {
+    if (hasInstallBanner && ch >= 720) {
       var instY = recordsY + 76 + 20;
       drawInstallBanner(cx, instY);
     }
 
     ctx.restore();
+
+    if (hasInstallBanner && ch < 720) {
+      drawInstallBanner(cx, ch - 58, true);
+    }
   }
 
   function drawDifficultyToggle(cx, cy) {
@@ -842,12 +881,12 @@ var Game = (function () {
     ctx.fillText('Total Games Played: ' + playCount, cx, cy + ph + 8);
   }
 
-  function drawInstallBanner(cx, cy) {
+  function drawInstallBanner(cx, cy, fixed) {
     var bw = canvas.width - 60;
     var bh = 44;
 
     var closeX = 30 + bw - 16;
-    var pointerY_scrolled = mouseY + menuScrollY;
+    var pointerY_scrolled = fixed ? mouseY : mouseY + menuScrollY;
     var isCloseHovered = (mouseX >= closeX - 10 && mouseX <= closeX + 10 && pointerY_scrolled >= cy + 4 && pointerY_scrolled <= cy + 20);
     var hovered = (mouseX >= 30 && mouseX <= 30 + bw && pointerY_scrolled >= cy && pointerY_scrolled <= cy + bh);
 
@@ -890,12 +929,23 @@ var Game = (function () {
 
     if (mode === 'match3') { 
       selectedLevelId = lvlId || '1-1';
-      Match3.init(canvas, ctx, goToMenu, difficulty, selectedLevelId); 
+      Match3.init(canvas, ctx, goToMenu, difficulty, selectedLevelId, goToNextLevel); 
       Match3.setHighScore(highScores.match3 || 0); 
       incrementPlayCount(); 
     }
 
     startCalled[mode] = true;
+  }
+
+  function goToNextLevel(nextLevelId) {
+    if (!nextLevelId || mode !== 'match3') return;
+    var prevScore = Match3.getScore();
+    Match3.destroy();
+    saveScore('match3', prevScore);
+    selectedLevelId = nextLevelId;
+    Match3.init(canvas, ctx, goToMenu, difficulty, selectedLevelId, goToNextLevel);
+    Match3.setHighScore(highScores.match3 || 0);
+    incrementPlayCount();
   }
 
   function goToMenu() {
@@ -1154,12 +1204,13 @@ var Game = (function () {
     // 설치 배너 클릭 판정
     var recordsY = diffCY + 32 + 20;
     if (deferredPrompt && !installDismissed) {
-      var instY = recordsY + 76 + 20;
+      var instY = ch < 720 ? ch - 58 : recordsY + 76 + 20;
       var instW = cw - 60;
       var instH = 44;
-      if (x >= 30 && x <= 30 + instW && scrolledY >= instY && scrolledY <= instY + instH) {
+      var pointerInstallY = ch < 720 ? y : scrolledY;
+      if (x >= 30 && x <= 30 + instW && pointerInstallY >= instY && pointerInstallY <= instY + instH) {
         var closeX = 30 + instW - 16;
-        if (x >= closeX - 10 && x <= closeX + 10 && scrolledY >= instY + 4 && scrolledY <= instY + 20) {
+        if (x >= closeX - 10 && x <= closeX + 10 && pointerInstallY >= instY + 4 && pointerInstallY <= instY + 20) {
           installDismissed = true;
           return;
         }
@@ -1229,10 +1280,21 @@ var Game = (function () {
     setupCanvas();
     if (mode === 'match3') {
       Match3.destroy();
-      Match3.init(canvas, ctx, goToMenu, difficulty, selectedLevelId);
+      Match3.init(canvas, ctx, goToMenu, difficulty, selectedLevelId, goToNextLevel);
       Match3.setHighScore(highScores.match3 || 0);
     }
   });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', function () {
+      setupCanvas();
+      if (mode === 'match3') {
+        Match3.destroy();
+        Match3.init(canvas, ctx, goToMenu, difficulty, selectedLevelId, goToNextLevel);
+        Match3.setHighScore(highScores.match3 || 0);
+      }
+    });
+  }
 
   init();
 
