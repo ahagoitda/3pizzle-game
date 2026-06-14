@@ -1,4 +1,4 @@
-var CACHE_NAME = '3pizzle-v12';
+var CACHE_NAME = '3pizzle-v13';
 var CACHE_URLS = [
   './',
   './index.html',
@@ -44,10 +44,10 @@ self.addEventListener('activate', function (event) {
 });
 
 self.addEventListener('fetch', function (event) {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request).then(function (cached) {
-      if (cached) return cached;
-      return fetch(event.request).then(function (response) {
+    fetch(event.request).then(function (response) {
         if (response && response.status === 200 && response.type === 'basic') {
           var clone = response.clone();
           caches.open(CACHE_NAME).then(function (cache) {
@@ -55,8 +55,9 @@ self.addEventListener('fetch', function (event) {
           });
         }
         return response;
-      }).catch(function () {
-        return caches.match('./index.html');
+    }).catch(function () {
+      return caches.match(event.request).then(function (cached) {
+        return cached || caches.match('./index.html');
       });
     })
   );

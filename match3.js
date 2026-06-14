@@ -34,6 +34,8 @@ const Match3 = (function () {
   var targetScore = 1000;
   var currentLevelId = '1-1';
   var autoNextTimer = 0;
+  var cascadeCount = 0;
+  var MAX_AUTO_CASCADES = 3;
 
   var GEM_NORMAL = 0;
   var GEM_LINE_H = 1;
@@ -177,6 +179,7 @@ const Match3 = (function () {
     itemShuffleCount = 1;
     activeItem = null;
     autoNextTimer = 0;
+    cascadeCount = 0;
     Effects.reset();
   }
 
@@ -663,9 +666,6 @@ const Match3 = (function () {
       for (var c = 0; c < COLS; c++) {
         if (grid[r][c] === -1) {
           var special = GEM_NORMAL;
-          if (feverActive && Math.random() < 0.08) {
-            special = Math.floor(Math.random() * 3) + 1;
-          }
 
           var newGem = -1;
           if (preventMatches) {
@@ -700,6 +700,53 @@ const Match3 = (function () {
         }
       }
     }
+  }
+
+  function breakAutoMatches() {
+    var guard = 0;
+    var matches = findMatches();
+    while (matches.length > 0 && guard < 80) {
+      var changed = false;
+      for (var i = 0; i < matches.length; i++) {
+        var cell = matches[i];
+        if (lockedGems[cell.r][cell.c]) continue;
+        var current = grid[cell.r][cell.c];
+        for (var t = 0; t < numColors; t++) {
+          var next = (current + 1 + t) % numColors;
+          if (!wouldCreateMatch(cell.r, cell.c, next)) {
+            grid[cell.r][cell.c] = next;
+            specialGems[cell.r][cell.c] = GEM_NORMAL;
+            changed = true;
+            break;
+          }
+        }
+      }
+      if (!changed) {
+        shuffleBoard();
+        return;
+      }
+      matches = findMatches();
+      guard++;
+    }
+  }
+
+  function updateRoundTimer(dt) {
+    if (timeLeft <= 0) return false;
+    timeLeft -= dt;
+    if (timeLeft > 0) return false;
+
+    timeLeft = 0;
+    gameOverTime = 0;
+    if (score >= targetScore) {
+      triggerStageClear();
+    } else {
+      animState = 'failed';
+      Sound.gameover();
+      Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FF3D00', {
+        speedMin: 80, speedMax: 250, lifeMin: 0.5, lifeMax: 1.5, sizeMin: 3, sizeMax: 8
+      });
+    }
+    return true;
   }
 
   function beginSwap(a, b) {
@@ -970,22 +1017,8 @@ const Match3 = (function () {
       return;
     }
 
-    if (timeLeft > 0 && animState !== 'remove' && animState !== 'swap' && animState !== 'swapback' && animState !== 'fall') {
-      timeLeft -= dt;
-      if (timeLeft <= 0) {
-        timeLeft = 0;
-        gameOverTime = 0;
-        if (score >= targetScore) {
-          triggerStageClear();
-        } else {
-          animState = 'failed';
-          Sound.gameover();
-          Effects.emit(canvas.width / 2, canvas.height / 2, 40, '#FF3D00', {
-            speedMin: 80, speedMax: 250, lifeMin: 0.5, lifeMax: 1.5, sizeMin: 3, sizeMax: 8
-          });
-        }
-        return;
-      }
+    if (updateRoundTimer(dt)) {
+      return;
     }
 
     if (animState === 'idle') {
@@ -1027,10 +1060,22 @@ const Match3 = (function () {
         fallData = null;
         var newMatches = findMatches();
         if (newMatches.length > 0) {
-          beginRemoval(newMatches);
+          if (cascadeCount >= MAX_AUTO_CASCADES) {
+            breakAutoMatches();
+            animState = 'idle';
+            combo = 0;
+            cascadeCount = 0;
+            if (!hasValidMoves()) {
+              shuffleBoard();
+            }
+          } else {
+            cascadeCount++;
+            beginRemoval(newMatches);
+          }
         } else {
           animState = 'idle';
           combo = 0;
+          cascadeCount = 0;
           if (!hasValidMoves()) {
             shuffleBoard();
           }
