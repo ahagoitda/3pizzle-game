@@ -188,7 +188,7 @@ const Match3 = (function () {
     var nextId = Match3Levels.getNextLevelId(currentLevelId);
     gameOverTime = 0;
     animState = 'clear';
-    autoNextTimer = nextId ? 0.65 : 0;
+    autoNextTimer = nextId ? 2.5 : 0;
     if (nextId) {
       Match3Levels.setUnlockedLevel(nextId);
     }
