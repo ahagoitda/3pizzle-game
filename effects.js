@@ -41,22 +41,17 @@ var Sound = (function () {
 
   var actx = null;
   var enabled = true;
-  var bgmIntervalId = null;
-  var bgmStep = 0;
+  var bgmFeverIntervalId = null;
 
-  var melodyPattern = [
-    261.63, 329.63, 392.00, 523.25, // C chord arpeggio
-    246.94, 293.66, 392.00, 493.88, // G chord arpeggio
-    220.00, 261.63, 329.63, 440.00, // Am chord arpeggio
-    174.61, 220.00, 261.63, 349.23  // F chord arpeggio
+  // 배경음악(BGM) — 업로드된 mp3 트랙을 순차 재생하고 반복
+  var bgmTracks = [
+    'assets/bgm_coffee_and_clockwork.mp3',
+    'assets/bgm_gravity_drop.mp3'
   ];
-
-  var bassPattern = [
-    130.81, 130.81, 130.81, 130.81,
-    98.00,  98.00,  98.00,  98.00,
-    110.00, 110.00, 110.00, 110.00,
-    87.31,  87.31,  87.31,  87.31
-  ];
+  var bgmAudio = null;
+  var bgmTrackIndex = 0;
+  var bgmBaseVolume = 0.4;
+  var bgmGestureBound = false;
 
   // localStorage에서 사운드 설정 로드
   try {
@@ -200,53 +195,84 @@ var Sound = (function () {
     return enabled;
   }
 
+  function ensureBgmAudio() {
+    if (bgmAudio) return bgmAudio;
+    try {
+      bgmAudio = new Audio();
+      bgmAudio.preload = 'auto';
+      bgmAudio.volume = bgmBaseVolume;
+      bgmAudio.src = bgmTracks[bgmTrackIndex];
+      // 한 곡이 끝나면 다음 트랙으로 넘어가고, 끝까지 가면 처음부터 반복
+      bgmAudio.addEventListener('ended', function () {
+        bgmTrackIndex = (bgmTrackIndex + 1) % bgmTracks.length;
+        bgmAudio.src = bgmTracks[bgmTrackIndex];
+        if (enabled) {
+          var pr = bgmAudio.play();
+          if (pr && typeof pr.catch === 'function') pr.catch(function () {});
+        }
+      });
+    } catch (e) {
+      bgmAudio = null;
+    }
+    return bgmAudio;
+  }
+
+  function attemptBgmPlay() {
+    if (!enabled) return;
+    var a = ensureBgmAudio();
+    if (!a) return;
+    var p = a.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(function () {
+        // 브라우저 자동재생 정책 차단 시: 첫 사용자 입력에서 다시 시도
+        bindBgmGesture();
+      });
+    }
+  }
+
+  function bindBgmGesture() {
+    if (bgmGestureBound) return;
+    bgmGestureBound = true;
+    var retry = function () {
+      document.removeEventListener('pointerdown', retry);
+      document.removeEventListener('touchstart', retry);
+      document.removeEventListener('keydown', retry);
+      bgmGestureBound = false;
+      if (enabled) attemptBgmPlay();
+    };
+    document.addEventListener('pointerdown', retry);
+    document.addEventListener('touchstart', retry);
+    document.addEventListener('keydown', retry);
+  }
+
   function startBGM() {
     if (!enabled) return;
-    if (bgmIntervalId) return;
-    bgmStep = 0;
-    bgmIntervalId = setInterval(function () {
-      if (!enabled) {
-        stopBGM();
-        return;
-      }
-      var c = getCtx();
-      if (!c) return;
-      resume();
+    attemptBgmPlay();
 
+    // 피버 타임에는 재생 속도를 살짝 올려 긴장감을 더한다
+    if (bgmFeverIntervalId) return;
+    bgmFeverIntervalId = setInterval(function () {
+      if (!enabled || !bgmAudio) return;
       var isFever = false;
       try {
         if (window.Match3 && typeof window.Match3.isFeverActive === 'function') {
           isFever = window.Match3.isFeverActive();
         }
       } catch (e) {}
-
-      var melodyFreq = melodyPattern[bgmStep % 16];
-      if (isFever) {
-        // Play higher pitch and triangle wave for energetic feeling
-        play(melodyFreq * 1.5, 0.12, 'triangle', 0.03);
-        // Snare/hi-hat on every step during fever
-        play(11000, 0.015, 'sawtooth', 0.007);
-      } else {
-        play(melodyFreq, 0.22, 'sine', 0.025);
+      var targetRate = isFever ? 1.12 : 1.0;
+      if (bgmAudio.playbackRate !== targetRate) {
+        bgmAudio.playbackRate = targetRate;
       }
-
-      if (bgmStep % 4 === 0) {
-        var bassFreq = bassPattern[bgmStep % 16];
-        play(isFever ? bassFreq * 1.5 : bassFreq, 0.45, 'triangle', 0.045);
-      }
-
-      if (bgmStep % 2 === 1 && !isFever) {
-        play(9000, 0.02, 'triangle', 0.006);
-      }
-
-      bgmStep++;
-    }, 250);
+    }, 400);
   }
 
   function stopBGM() {
-    if (bgmIntervalId) {
-      clearInterval(bgmIntervalId);
-      bgmIntervalId = null;
+    if (bgmFeverIntervalId) {
+      clearInterval(bgmFeverIntervalId);
+      bgmFeverIntervalId = null;
+    }
+    if (bgmAudio) {
+      try { bgmAudio.pause(); } catch (e) {}
     }
   }
 

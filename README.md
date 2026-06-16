@@ -14,7 +14,7 @@
 - **HTML5 Canvas** — 모든 그래픽 및 프리미엄 일러스트 렌더링
 - **Vanilla JavaScript** — 외부 라이브러리 / 프레임워크 미사용
 - **CSS3** — 반응형 레이아웃, Glass-morphism UI
-- **Web Audio API** — 레트로 칩튠 BGM 및 사운드 효과 자동 생성
+- **HTML5 Audio + Web Audio API** — 배경음악(BGM) 트랙 재생 및 실시간 사운드 효과 생성
 - **localStorage** — 최고 점수 및 스테이지 진행도 연동
 
 ## 프로젝트 구조

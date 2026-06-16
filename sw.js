@@ -1,4 +1,4 @@
-var CACHE_NAME = '3pizzle-v13';
+var CACHE_NAME = '3pizzle-v14';
 var CACHE_URLS = [
   './',
   './index.html',
@@ -19,7 +19,9 @@ var CACHE_URLS = [
   './assets/world2_cave.png',
   './assets/world3_volcano.png',
   './assets/world4_sky.png',
-  './assets/world5_space.png'
+  './assets/world5_space.png',
+  './assets/bgm_coffee_and_clockwork.mp3',
+  './assets/bgm_gravity_drop.mp3'
 ];
 
 self.addEventListener('install', function (event) {
