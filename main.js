@@ -6,10 +6,6 @@ var Game = (function () {
   var startCalled = {};
   var menuPulse;
   var difficulty = 'normal';
-  var difficultyNames = ['easy', 'normal', 'hard'];
-  var difficultyLabels = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
-  var difficultyColors = { easy: '#4CAF50', normal: '#FF9800', hard: '#F44336' };
-  var difficultyBg = { easy: '#E8F5E9', normal: '#FFF3E0', hard: '#FFEBEE' };
   var deferredPrompt = null;
   var installDismissed = false;
 
@@ -54,7 +50,6 @@ var Game = (function () {
     worldImages.world5.src = 'assets/world5_space.png';
 
     loadScores();
-    loadDifficulty();
     loadPlayCount();
     setupCanvas();
     bindGlobalInput();
@@ -786,10 +781,7 @@ var Game = (function () {
       ctx.fillText(isUnlocked ? lvl.id : '🔒', cx_node, cy5);
     }
 
-    var diffCY = w5Y + cardH + 20;
-    drawDifficultyToggle(cx, diffCY);
-
-    var recordsY = diffCY + 32 + 20;
+    var recordsY = w5Y + cardH + 30;
     drawScores(cx, recordsY);
 
     if (hasInstallBanner && ch >= 720) {
@@ -801,57 +793,6 @@ var Game = (function () {
 
     if (hasInstallBanner && ch < 720) {
       drawInstallBanner(cx, ch - 58, true);
-    }
-  }
-
-  function drawDifficultyToggle(cx, cy) {
-    ctx.font = '12px "Outfit", "Segoe UI", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#90A4AE';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('\u2699 Difficulty', cx, cy - 6);
-
-    var totalW = 220;
-    var btnW = totalW / 3 - 4;
-    var btnH = 32;
-    var startX = cx - totalW / 2 + 2;
-    var diffTopY = cy + 4;
-
-    drawRoundRect(cx - totalW / 2, diffTopY, totalW, btnH, 8, 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.1)', 1);
-
-    for (var i = 0; i < 3; i++) {
-      var d = difficultyNames[i];
-      var bx = startX + i * (totalW / 3) + 1;
-      var bw = totalW / 3 - 2;
-      var isSelected = (d === difficulty);
-
-      var pointerY_scrolled = mouseY + menuScrollY;
-      var hovered = (mouseX >= bx && mouseX <= bx + bw && pointerY_scrolled >= diffTopY + 1 && pointerY_scrolled <= diffTopY + btnH - 1);
-
-      if (isSelected) {
-        ctx.save();
-        ctx.shadowColor = difficultyColors[d];
-        ctx.shadowBlur = 8;
-        drawRoundRect(bx, cy + 6, bw, btnH - 4, 6, difficultyColors[d], null);
-        ctx.restore();
-
-        ctx.font = 'bold 13px "Outfit", "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(difficultyLabels[d], bx + bw / 2, cy + 4 + btnH / 2);
-      } else {
-        ctx.save();
-        if (hovered) {
-          drawRoundRect(bx, cy + 6, bw, btnH - 4, 6, 'rgba(255,255,255,0.08)', null);
-        }
-        ctx.font = '12px "Outfit", "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = hovered ? '#FFFFFF' : '#90A4AE';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(difficultyLabels[d], bx + bw / 2, cy + 4 + btnH / 2);
-        ctx.restore();
-      }
     }
   }
 
@@ -1182,27 +1123,8 @@ var Game = (function () {
       }
     }
 
-    // 난이도 토글 클릭 판정
-    var diffCY = w5Y + 80 + 20;
-    var diffTopY = diffCY + 4;
-    var diffBtnH = 32;
-    var totalW_diff = 220;
-    var startX_diff = cw / 2 - totalW_diff / 2 + 2;
-    if (scrolledY >= diffTopY && scrolledY <= diffTopY + diffBtnH) {
-      for (var d = 0; d < 3; d++) {
-        var bx = startX_diff + d * (totalW_diff / 3) + 1;
-        var bw = totalW_diff / 3 - 2;
-        if (x >= bx && x <= bx + bw) {
-          difficulty = difficultyNames[d];
-          saveDifficulty();
-          Sound.click();
-          return;
-        }
-      }
-    }
-
     // 설치 배너 클릭 판정
-    var recordsY = diffCY + 32 + 20;
+    var recordsY = w5Y + 80 + 30;
     if (deferredPrompt && !installDismissed) {
       var instY = ch < 720 ? ch - 58 : recordsY + 76 + 20;
       var instW = cw - 60;
@@ -1245,19 +1167,6 @@ var Game = (function () {
         localStorage.setItem('triplePuzzleScores', JSON.stringify(highScores));
       } catch (e) { }
     }
-  }
-
-  function loadDifficulty() {
-    try {
-      var d = localStorage.getItem('triplePuzzleDifficulty');
-      if (d === 'easy' || d === 'normal' || d === 'hard') difficulty = d;
-    } catch (e) { }
-  }
-
-  function saveDifficulty() {
-    try {
-      localStorage.setItem('triplePuzzleDifficulty', difficulty);
-    } catch (e) { }
   }
 
   function loadPlayCount() {
